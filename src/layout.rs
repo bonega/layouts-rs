@@ -35,10 +35,6 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
             );
         }
 
-        if definition.chars().collect::<HashSet<_>>().len() != definition.len() {
-            anyhow::bail!("duplicate characters are not allowed in the layout");
-        }
-
         let mut keys = Self::default_keys();
         for (index, ch) in definition.chars().enumerate() {
             let row = index / COLUMNS;
@@ -94,7 +90,7 @@ mod tests {
         check!(Layout::<2, 2>::new("abcd").is_ok());
         check!(Layout::<2, 3>::new("abcdef").is_ok());
         check!(Layout::<2, 2>::new("abcde").is_err());
-        check!(Layout::<2, 2>::new("aaaa").is_err());
+        check!(Layout::<2, 2>::new("aaaa").is_ok());
     }
 
     #[test]
