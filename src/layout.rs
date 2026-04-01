@@ -26,6 +26,11 @@ pub struct Layout<const ROWS: usize = 3, const COLUMNS: usize = 12> {
 
 impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
     pub fn new(definition: &str) -> anyhow::Result<Self> {
+        let definition = definition
+            .chars()
+            .filter(|c| !c.is_whitespace())
+            .collect::<String>();
+
         if definition.len() != ROWS * COLUMNS {
             anyhow::bail!(
                 "expected {ROWS} rows and {COLUMNS} columns, received {} characters",
@@ -93,11 +98,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_checks_valid_layout() {
+    fn it_builds_from_string() {
         check!(Layout::<2, 2>::new("abcd").is_ok());
         check!(Layout::<2, 3>::new("abcdef").is_ok());
         check!(Layout::<2, 2>::new("abcde").is_err());
         check!(Layout::<2, 2>::new("aaaa").is_ok());
+    }
+
+    #[test]
+    fn it_builds_from_string_normalizing() {
+        check!(
+            Layout::<2, 3>::new(
+                r#"
+            a b c
+            d e f
+            "#
+            )
+            .is_ok()
+        );
     }
 
     #[test]
