@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 pub struct Pos {
     pub r: usize,
     pub c: usize,
@@ -64,6 +62,15 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
                     .as_ref()
                     .filter(|key| key.ch.to_string() == ch)
             })
+    }
+
+    pub fn set_char(&mut self, position: Pos, ch: char) -> anyhow::Result<()> {
+        if position.r >= ROWS || position.c >= COLUMNS {
+            anyhow::bail!("position out of bounds");
+        }
+
+        self.keys[position.r][position.c] = Some(Key::new(ch));
+        Ok(())
     }
 
     fn default_keys() -> [[Option<Key>; COLUMNS]; ROWS] {
@@ -132,5 +139,13 @@ mod tests {
         check!(layout.char_at(Pos::new(1, 2)) == Some('f'));
         check!(layout.char_at(Pos::new(2, 0)) == None);
         check!(layout.char_at(Pos::new(0, 3)) == None);
+    }
+
+    #[test]
+    fn it_sets_char_for_key() {
+        let mut layout = Layout::<2, 3>::new("abcdef").unwrap();
+
+        check!(layout.set_char(Pos::new(0, 0), 'x').is_ok());
+        check!(layout.char_at(Pos::new(0, 0)) == Some('x'));
     }
 }
