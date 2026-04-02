@@ -144,14 +144,10 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
         self.keys[position.r][position.c].as_ref()
     }
 
-    pub fn key_for(&self, ch: &str) -> Option<&Key> {
+    pub fn key_for(&self, ch: char) -> Option<&Key> {
         (0..ROWS)
             .flat_map(|row| (0..COLUMNS).map(move |col| (row, col)))
-            .find_map(|(row, col)| {
-                self.keys[row][col]
-                    .as_ref()
-                    .filter(|key| key.ch.to_string() == ch)
-            })
+            .find_map(|(row, col)| self.keys[row][col].as_ref().filter(|key| key.ch == ch))
     }
 
     pub fn set_char(&mut self, position: Pos, ch: char) -> anyhow::Result<()> {
@@ -175,6 +171,30 @@ impl<const ROWS: usize, const COLUMNS: usize> Default for Layout<ROWS, COLUMNS> 
         Self {
             keys: Self::default_keys(),
         }
+    }
+}
+
+#[cfg(test)]
+pub mod fixtures {
+    use rstest::fixture;
+
+    use super::*;
+
+    #[fixture]
+    pub fn qwerty() -> Layout<3, 10> {
+        Layout::new(
+            r#"
+            q w e r t y u i o p
+            a s d f g h j k l ;
+            z x c v b n m , . /
+            "#,
+            vec![
+                vec![1, 2, 3, 4, 4, 7, 8, 9, 10, 10],
+                vec![1, 2, 3, 4, 4, 7, 8, 9, 10, 10],
+                vec![1, 2, 3, 4, 4, 7, 8, 9, 10, 10],
+            ],
+        )
+        .unwrap()
     }
 }
 
@@ -269,11 +289,11 @@ mod tests {
         fn it_returns_key_by_char() {
             let layout = Layout::<2, 2>::new("abcd", vec![vec![1, 2], vec![1, 2]]).unwrap();
 
-            check!(layout.key_for("a") == Some(&key!('a', 1, pos!(0, 0))));
-            check!(layout.key_for("b") == Some(&key!('b', 2, pos!(0, 1))));
-            check!(layout.key_for("c") == Some(&key!('c', 1, pos!(1, 0))));
-            check!(layout.key_for("d") == Some(&key!('d', 2, pos!(1, 1))));
-            check!(layout.key_for("e") == None);
+            check!(layout.key_for('a') == Some(&key!('a', 1, pos!(0, 0))));
+            check!(layout.key_for('b') == Some(&key!('b', 2, pos!(0, 1))));
+            check!(layout.key_for('c') == Some(&key!('c', 1, pos!(1, 0))));
+            check!(layout.key_for('d') == Some(&key!('d', 2, pos!(1, 1))));
+            check!(layout.key_for('e') == None);
         }
 
         #[test]
