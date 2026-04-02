@@ -1,4 +1,4 @@
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Pos {
     pub r: usize,
     pub c: usize,
@@ -10,10 +10,10 @@ impl Pos {
     }
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Key {
     ch: char,
-    finger: Finger,
+    pub finger: Finger,
     position: Pos,
 }
 
@@ -39,7 +39,7 @@ impl Key {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Finger {
     pub hand: Hand,
     pub kind: FingerKind,
@@ -95,13 +95,13 @@ impl From<u8> for Finger {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Hand {
     Left,
     Right,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum FingerKind {
     Pinky,
     Ring,
@@ -206,17 +206,17 @@ pub mod fixtures {
     use super::*;
 
     #[fixture]
-    pub fn qwerty() -> Layout<3, 10> {
+    pub fn qwerty() -> Layout<3, 12> {
         Layout::new(
             r#"
-            q w e r t y u i o p
-            a s d f g h j k l ;
-            z x c v b n m , . /
+            _ q w e r t   y u i o p _
+            " a s d f g   h j k l ; '
+            _ z x c v b   n m , . / _
             "#,
             vec![
-                vec![1, 2, 3, 4, 4, 7, 8, 9, 10, 10],
-                vec![1, 2, 3, 4, 4, 7, 8, 9, 10, 10],
-                vec![1, 2, 3, 4, 4, 7, 8, 9, 10, 10],
+                vec![1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
+                vec![1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
+                vec![1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
             ],
         )
         .unwrap()
