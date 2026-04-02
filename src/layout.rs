@@ -25,6 +25,18 @@ impl Key {
             position,
         }
     }
+
+    pub fn same_finger(&self, other: &Key) -> bool {
+        self.finger == other.finger
+    }
+
+    pub fn row_distance(&self, other: &Key) -> usize {
+        self.position.r.abs_diff(other.position.r)
+    }
+
+    pub fn column_distance(&self, other: &Key) -> usize {
+        self.position.c.abs_diff(other.position.c)
+    }
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -168,72 +180,117 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn it_builds_from_configuration() {
-        check!(Layout::<2, 2>::new("abcd", vec![vec![1, 2], vec![1, 2]]).is_ok());
-        check!(Layout::<2, 3>::new("abcdef", vec![vec![1, 2, 3], vec![1, 2, 3]]).is_ok());
-        check!(Layout::<2, 2>::new("aaaa", vec![vec![1, 2], vec![1, 2]]).is_ok());
+    mod key {
+        use super::*;
 
-        check!(Layout::<2, 2>::new("abcde", vec![vec![1, 2], vec![1, 2]]).is_err());
-        check!(Layout::<2, 2>::new("abcd", vec![vec![1, 2], vec![1, 2, 3]]).is_err());
+        #[test]
+        fn it_checks_if_keys_are_same_finger() {
+            let key1 = key!('q', 1, pos!(0, 0));
+            let key2 = key!('w', 2, pos!(0, 1));
+            let key3 = key!('a', 1, pos!(0, 1));
+
+            check!(key1.same_finger(&key3));
+            check!(!key1.same_finger(&key2));
+        }
+
+        #[test]
+        fn it_checks_row_distance() {
+            let key1 = key!('q', 1, pos!(0, 0));
+            let key2 = key!('w', 1, pos!(0, 1));
+            let key3 = key!('a', 1, pos!(1, 0));
+            let key4 = key!('z', 1, pos!(2, 0));
+
+            check!(key1.row_distance(&key2) == 0);
+            check!(key1.row_distance(&key3) == 1);
+            check!(key1.row_distance(&key4) == 2);
+            check!(key4.row_distance(&key1) == 2);
+        }
+
+        #[test]
+        fn it_checks_column_distance() {
+            let key1 = key!('q', 1, pos!(0, 0));
+            let key2 = key!('w', 1, pos!(0, 1));
+            let key3 = key!('a', 1, pos!(1, 0));
+            let key4 = key!('e', 1, pos!(1, 2));
+
+            check!(key1.column_distance(&key2) == 1);
+            check!(key1.column_distance(&key3) == 0);
+            check!(key1.column_distance(&key4) == 2);
+            check!(key4.column_distance(&key1) == 2);
+        }
     }
 
-    #[test]
-    fn it_builds_from_string_normalizing() {
-        check!(
-            Layout::<2, 3>::new(
-                r#"
+    mod layout {
+        use super::*;
+
+        #[test]
+        fn it_builds_from_configuration() {
+            check!(Layout::<2, 2>::new("abcd", vec![vec![1, 2], vec![1, 2]]).is_ok());
+            check!(Layout::<2, 3>::new("abcdef", vec![vec![1, 2, 3], vec![1, 2, 3]]).is_ok());
+            check!(Layout::<2, 2>::new("aaaa", vec![vec![1, 2], vec![1, 2]]).is_ok());
+
+            check!(Layout::<2, 2>::new("abcde", vec![vec![1, 2], vec![1, 2]]).is_err());
+            check!(Layout::<2, 2>::new("abcd", vec![vec![1, 2], vec![1, 2, 3]]).is_err());
+        }
+
+        #[test]
+        fn it_builds_from_string_normalizing() {
+            check!(
+                Layout::<2, 3>::new(
+                    r#"
             a b c
             d e f
             "#,
-                vec![vec![1, 2, 3], vec![1, 2, 3]]
-            )
-            .is_ok()
-        );
-    }
+                    vec![vec![1, 2, 3], vec![1, 2, 3]]
+                )
+                .is_ok()
+            );
+        }
 
-    #[test]
-    fn it_returns_key_by_pos() {
-        let layout = Layout::<2, 3>::new("abcdef", vec![vec![1, 2, 3], vec![1, 2, 3]]).unwrap();
+        #[test]
+        fn it_returns_key_by_pos() {
+            let layout = Layout::<2, 3>::new("abcdef", vec![vec![1, 2, 3], vec![1, 2, 3]]).unwrap();
 
-        check!(layout.key_at(Pos::new(0, 0)) == Some(&key!('a', 1, pos!(0, 0))));
-        check!(layout.key_at(Pos::new(0, 1)) == Some(&key!('b', 2, pos!(0, 1))));
-        check!(layout.key_at(Pos::new(0, 2)) == Some(&key!('c', 3, pos!(0, 2))));
-        check!(layout.key_at(Pos::new(1, 0)) == Some(&key!('d', 1, pos!(1, 0))));
-        check!(layout.key_at(Pos::new(1, 1)) == Some(&key!('e', 2, pos!(1, 1))));
-        check!(layout.key_at(Pos::new(1, 2)) == Some(&key!('f', 3, pos!(1, 2))));
-        check!(layout.key_at(Pos::new(2, 0)) == None);
-        check!(layout.key_at(Pos::new(0, 3)) == None);
-    }
+            check!(layout.key_at(Pos::new(0, 0)) == Some(&key!('a', 1, pos!(0, 0))));
+            check!(layout.key_at(Pos::new(0, 1)) == Some(&key!('b', 2, pos!(0, 1))));
+            check!(layout.key_at(Pos::new(0, 2)) == Some(&key!('c', 3, pos!(0, 2))));
+            check!(layout.key_at(Pos::new(1, 0)) == Some(&key!('d', 1, pos!(1, 0))));
+            check!(layout.key_at(Pos::new(1, 1)) == Some(&key!('e', 2, pos!(1, 1))));
+            check!(layout.key_at(Pos::new(1, 2)) == Some(&key!('f', 3, pos!(1, 2))));
+            check!(layout.key_at(Pos::new(2, 0)) == None);
+            check!(layout.key_at(Pos::new(0, 3)) == None);
+        }
 
-    #[test]
-    fn it_returns_key_by_char() {
-        let layout = Layout::<2, 2>::new("abcd", vec![vec![1, 2], vec![1, 2]]).unwrap();
+        #[test]
+        fn it_returns_key_by_char() {
+            let layout = Layout::<2, 2>::new("abcd", vec![vec![1, 2], vec![1, 2]]).unwrap();
 
-        check!(layout.key_for("a") == Some(&key!('a', 1, pos!(0, 0))));
-        check!(layout.key_for("b") == Some(&key!('b', 2, pos!(0, 1))));
-        check!(layout.key_for("c") == Some(&key!('c', 1, pos!(1, 0))));
-        check!(layout.key_for("d") == Some(&key!('d', 2, pos!(1, 1))));
-        check!(layout.key_for("e") == None);
-    }
+            check!(layout.key_for("a") == Some(&key!('a', 1, pos!(0, 0))));
+            check!(layout.key_for("b") == Some(&key!('b', 2, pos!(0, 1))));
+            check!(layout.key_for("c") == Some(&key!('c', 1, pos!(1, 0))));
+            check!(layout.key_for("d") == Some(&key!('d', 2, pos!(1, 1))));
+            check!(layout.key_for("e") == None);
+        }
 
-    #[test]
-    fn it_returns_char_by_pos() {
-        let layout = Layout::<2, 2>::new("abcd", vec![vec![1, 2], vec![1, 2]]).unwrap();
+        #[test]
+        fn it_returns_char_by_pos() {
+            let layout = Layout::<2, 2>::new("abcd", vec![vec![1, 2], vec![1, 2]]).unwrap();
 
-        check!(layout.char_at(Pos::new(0, 0)) == Some('a'));
-        check!(layout.char_at(Pos::new(0, 1)) == Some('b'));
-        check!(layout.char_at(Pos::new(1, 0)) == Some('c'));
-        check!(layout.char_at(Pos::new(1, 1)) == Some('d'));
-        check!(layout.char_at(Pos::new(2, 0)) == None);
-        check!(layout.char_at(Pos::new(0, 2)) == None);
-    }
+            check!(layout.char_at(Pos::new(0, 0)) == Some('a'));
+            check!(layout.char_at(Pos::new(0, 1)) == Some('b'));
+            check!(layout.char_at(Pos::new(1, 0)) == Some('c'));
+            check!(layout.char_at(Pos::new(1, 1)) == Some('d'));
+            check!(layout.char_at(Pos::new(2, 0)) == None);
+            check!(layout.char_at(Pos::new(0, 2)) == None);
+        }
 
-    #[test]
-    fn it_sets_char_for_key() {
-        let mut layout = Layout::<2, 3>::new("abcdef", vec![vec![1, 2, 3], vec![1, 2, 3]]).unwrap();
+        #[test]
+        fn it_sets_char_for_key() {
+            let mut layout =
+                Layout::<2, 3>::new("abcdef", vec![vec![1, 2, 3], vec![1, 2, 3]]).unwrap();
 
-        check!(layout.set_char(Pos::new(0, 0), 'x').is_ok());
-        check!(layout.char_at(Pos::new(0, 0)) == Some('x'));
+            check!(layout.set_char(Pos::new(0, 0), 'x').is_ok());
+            check!(layout.char_at(Pos::new(0, 0)) == Some('x'));
+        }
     }
 }
