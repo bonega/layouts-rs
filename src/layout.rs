@@ -1,7 +1,9 @@
+#[derive(Clone, Copy, PartialEq)]
 pub struct Pos {
     pub r: usize,
     pub c: usize,
 }
+
 impl Pos {
     pub fn new(r: usize, c: usize) -> Self {
         Self { r, c }
@@ -11,12 +13,60 @@ impl Pos {
 #[derive(Clone, Copy, PartialEq)]
 pub struct Key {
     ch: char,
+    finger: Finger,
+    position: Pos,
 }
 
 impl Key {
-    fn new(ch: char) -> Self {
-        Self { ch }
+    pub fn new(ch: char, finger: Finger, position: Pos) -> Self {
+        Self {
+            ch,
+            finger,
+            position,
+        }
     }
+}
+
+#[derive(Copy, Clone, PartialEq)]
+pub struct Finger {
+    hand: Hand,
+    kind: FingerKind,
+}
+
+impl Finger {
+    pub fn new(hand: Hand, kind: FingerKind) -> Self {
+        Self { hand, kind }
+    }
+}
+
+impl From<u8> for Finger {
+    fn from(value: u8) -> Self {
+        let hand = if value < 5 { Hand::Left } else { Hand::Right };
+        let kind = match value {
+            0 => FingerKind::Pinky,
+            1 => FingerKind::Ring,
+            2 => FingerKind::Middle,
+            3 => FingerKind::Index,
+            5 => FingerKind::Thumb,
+            _ => panic!("invalid finger value: {value}"),
+        };
+        Self { hand, kind }
+    }
+}
+
+#[derive(Copy, Clone, PartialEq)]
+pub enum Hand {
+    Left,
+    Right,
+}
+
+#[derive(Copy, Clone, PartialEq)]
+pub enum FingerKind {
+    Pinky,
+    Ring,
+    Middle,
+    Index,
+    Thumb,
 }
 
 #[derive(Clone, Copy)]
@@ -25,7 +75,7 @@ pub struct Layout<const ROWS: usize = 3, const COLUMNS: usize = 12> {
 }
 
 impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
-    pub fn new(definition: &str) -> anyhow::Result<Self> {
+    pub fn new(definition: &str, finger_assignment: Vec<Vec<u8>>) -> anyhow::Result<Self> {
         let definition = definition
             .chars()
             .filter(|c| !c.is_whitespace())
@@ -38,11 +88,30 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
             );
         }
 
+        if finger_assignment.len() != ROWS
+            || finger_assignment.iter().any(|row| row.len() != COLUMNS)
+        {
+            anyhow::bail!(
+                "expected finger assignment to have {ROWS} rows and {COLUMNS} columns, received {} rows and {} columns",
+                finger_assignment.len(),
+                finger_assignment
+                    .iter()
+                    .map(|row| row.len())
+                    .max()
+                    .unwrap_or(0)
+            );
+        }
+
         let mut keys = Self::default_keys();
         for (index, ch) in definition.chars().enumerate() {
             let row = index / COLUMNS;
             let column = index % COLUMNS;
-            keys[row][column] = Some(Key::new(ch));
+
+            keys[row][column] = Some(Key::new(
+                ch,
+                Finger::from(finger_assignment[row][column]),
+                Pos::new(row, column),
+            ));
         }
 
         Ok(Self { keys })
@@ -74,7 +143,9 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
             anyhow::bail!("position out of bounds");
         }
 
-        self.keys[position.r][position.c] = Some(Key::new(ch));
+        if let Some(key) = self.keys[position.r][position.c].as_mut() {
+            key.ch = ch;
+        }
         Ok(())
     }
 
@@ -98,11 +169,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_builds_from_string() {
-        check!(Layout::<2, 2>::new("abcd").is_ok());
-        check!(Layout::<2, 3>::new("abcdef").is_ok());
-        check!(Layout::<2, 2>::new("abcde").is_err());
-        check!(Layout::<2, 2>::new("aaaa").is_ok());
+    fn it_builds_from_configuration() {
+        check!(Layout::<2, 2>::new("abcd", vec![vec![1, 2], vec![1, 2]]).is_ok());
+        check!(Layout::<2, 3>::new("abcdef", vec![vec![1, 2, 3], vec![1, 2, 3]]).is_ok());
+        check!(Layout::<2, 2>::new("aaaa", vec![vec![1, 2], vec![1, 2]]).is_ok());
+
+        check!(Layout::<2, 2>::new("abcde", vec![vec![1, 2], vec![1, 2]]).is_err());
+        check!(Layout::<2, 2>::new("abcd", vec![vec![1, 2], vec![1, 2, 3]]).is_err());
     }
 
     #[test]
@@ -112,7 +185,8 @@ mod tests {
                 r#"
             a b c
             d e f
-            "#
+            "#,
+                vec![vec![1, 2, 3], vec![1, 2, 3]]
             )
             .is_ok()
         );
@@ -120,48 +194,44 @@ mod tests {
 
     #[test]
     fn it_returns_key_by_pos() {
-        let layout = Layout::<2, 3>::new("abcdef").unwrap();
+        let layout = Layout::<2, 3>::new("abcdef", vec![vec![1, 2, 3], vec![1, 2, 3]]).unwrap();
 
-        check!(layout.key_at(Pos::new(0, 0)) == Some(&Key::new('a')));
-        check!(layout.key_at(Pos::new(0, 1)) == Some(&Key::new('b')));
-        check!(layout.key_at(Pos::new(0, 2)) == Some(&Key::new('c')));
-        check!(layout.key_at(Pos::new(1, 0)) == Some(&Key::new('d')));
-        check!(layout.key_at(Pos::new(1, 1)) == Some(&Key::new('e')));
-        check!(layout.key_at(Pos::new(1, 2)) == Some(&Key::new('f')));
+        check!(layout.key_at(Pos::new(0, 0)) == Some(&key!('a', 1, pos!(0, 0))));
+        check!(layout.key_at(Pos::new(0, 1)) == Some(&key!('b', 2, pos!(0, 1))));
+        check!(layout.key_at(Pos::new(0, 2)) == Some(&key!('c', 3, pos!(0, 2))));
+        check!(layout.key_at(Pos::new(1, 0)) == Some(&key!('d', 1, pos!(1, 0))));
+        check!(layout.key_at(Pos::new(1, 1)) == Some(&key!('e', 2, pos!(1, 1))));
+        check!(layout.key_at(Pos::new(1, 2)) == Some(&key!('f', 3, pos!(1, 2))));
         check!(layout.key_at(Pos::new(2, 0)) == None);
         check!(layout.key_at(Pos::new(0, 3)) == None);
     }
 
     #[test]
     fn it_returns_key_by_char() {
-        let layout = Layout::<2, 3>::new("abcdef").unwrap();
+        let layout = Layout::<2, 2>::new("abcd", vec![vec![1, 2], vec![1, 2]]).unwrap();
 
-        check!(layout.key_for("a") == Some(&Key::new('a')));
-        check!(layout.key_for("b") == Some(&Key::new('b')));
-        check!(layout.key_for("c") == Some(&Key::new('c')));
-        check!(layout.key_for("d") == Some(&Key::new('d')));
-        check!(layout.key_for("e") == Some(&Key::new('e')));
-        check!(layout.key_for("f") == Some(&Key::new('f')));
-        check!(layout.key_for("g") == None);
+        check!(layout.key_for("a") == Some(&key!('a', 1, pos!(0, 0))));
+        check!(layout.key_for("b") == Some(&key!('b', 2, pos!(0, 1))));
+        check!(layout.key_for("c") == Some(&key!('c', 1, pos!(1, 0))));
+        check!(layout.key_for("d") == Some(&key!('d', 2, pos!(1, 1))));
+        check!(layout.key_for("e") == None);
     }
 
     #[test]
     fn it_returns_char_by_pos() {
-        let layout = Layout::<2, 3>::new("abcdef").unwrap();
+        let layout = Layout::<2, 2>::new("abcd", vec![vec![1, 2], vec![1, 2]]).unwrap();
 
         check!(layout.char_at(Pos::new(0, 0)) == Some('a'));
         check!(layout.char_at(Pos::new(0, 1)) == Some('b'));
-        check!(layout.char_at(Pos::new(0, 2)) == Some('c'));
-        check!(layout.char_at(Pos::new(1, 0)) == Some('d'));
-        check!(layout.char_at(Pos::new(1, 1)) == Some('e'));
-        check!(layout.char_at(Pos::new(1, 2)) == Some('f'));
+        check!(layout.char_at(Pos::new(1, 0)) == Some('c'));
+        check!(layout.char_at(Pos::new(1, 1)) == Some('d'));
         check!(layout.char_at(Pos::new(2, 0)) == None);
-        check!(layout.char_at(Pos::new(0, 3)) == None);
+        check!(layout.char_at(Pos::new(0, 2)) == None);
     }
 
     #[test]
     fn it_sets_char_for_key() {
-        let mut layout = Layout::<2, 3>::new("abcdef").unwrap();
+        let mut layout = Layout::<2, 3>::new("abcdef", vec![vec![1, 2, 3], vec![1, 2, 3]]).unwrap();
 
         check!(layout.set_char(Pos::new(0, 0), 'x').is_ok());
         check!(layout.char_at(Pos::new(0, 0)) == Some('x'));
