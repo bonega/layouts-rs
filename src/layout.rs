@@ -53,13 +53,17 @@ impl Finger {
 
 impl From<u8> for Finger {
     fn from(value: u8) -> Self {
-        let hand = if value < 5 { Hand::Left } else { Hand::Right };
-        let kind = match value {
-            0 => FingerKind::Pinky,
-            1 => FingerKind::Ring,
-            2 => FingerKind::Middle,
-            3 => FingerKind::Index,
-            5 => FingerKind::Thumb,
+        let (hand, kind) = match value {
+            1 => (Hand::Left, FingerKind::Pinky),
+            2 => (Hand::Left, FingerKind::Ring),
+            3 => (Hand::Left, FingerKind::Middle),
+            4 => (Hand::Left, FingerKind::Index),
+            5 => (Hand::Left, FingerKind::Thumb),
+            6 => (Hand::Right, FingerKind::Thumb),
+            7 => (Hand::Right, FingerKind::Index),
+            8 => (Hand::Right, FingerKind::Middle),
+            9 => (Hand::Right, FingerKind::Ring),
+            10 => (Hand::Right, FingerKind::Pinky),
             _ => panic!("invalid finger value: {value}"),
         };
         Self { hand, kind }
