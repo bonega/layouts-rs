@@ -39,15 +39,40 @@ impl Key {
     }
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub struct Finger {
-    hand: Hand,
-    kind: FingerKind,
+    pub hand: Hand,
+    pub kind: FingerKind,
 }
 
 impl Finger {
     pub fn new(hand: Hand, kind: FingerKind) -> Self {
         Self { hand, kind }
+    }
+
+    pub fn distance(&self, other: &Finger) -> Option<usize> {
+        if self.hand != other.hand || self.kind == other.kind {
+            return None;
+        }
+
+        Some((self.kind as i32).abs_diff(other.kind as i32) as usize)
+    }
+}
+
+impl From<Finger> for u8 {
+    fn from(value: Finger) -> Self {
+        match (value.hand, value.kind) {
+            (Hand::Left, FingerKind::Pinky) => 1,
+            (Hand::Left, FingerKind::Ring) => 2,
+            (Hand::Left, FingerKind::Middle) => 3,
+            (Hand::Left, FingerKind::Index) => 4,
+            (Hand::Left, FingerKind::Thumb) => 5,
+            (Hand::Right, FingerKind::Thumb) => 6,
+            (Hand::Right, FingerKind::Index) => 7,
+            (Hand::Right, FingerKind::Middle) => 8,
+            (Hand::Right, FingerKind::Ring) => 9,
+            (Hand::Right, FingerKind::Pinky) => 10,
+        }
     }
 }
 
@@ -70,13 +95,13 @@ impl From<u8> for Finger {
     }
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Hand {
     Left,
     Right,
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd)]
 pub enum FingerKind {
     Pinky,
     Ring,
@@ -203,6 +228,23 @@ mod tests {
     use assert2::check;
 
     use super::*;
+
+    mod finger {
+        use super::*;
+
+        #[test]
+        fn it_calculates_distance() {
+            let finger1 = Finger::new(Hand::Left, FingerKind::Index);
+            let finger2 = Finger::new(Hand::Left, FingerKind::Pinky);
+            let finger3 = Finger::new(Hand::Right, FingerKind::Index);
+            let finger4 = Finger::new(Hand::Right, FingerKind::Middle);
+
+            check!(finger1.distance(&finger1) == None);
+            check!(finger1.distance(&finger2) == Some(3));
+            check!(finger1.distance(&finger3) == None);
+            check!(finger3.distance(&finger4) == Some(1));
+        }
+    }
 
     mod key {
         use super::*;
