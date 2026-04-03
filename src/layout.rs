@@ -14,7 +14,7 @@ impl Pos {
 pub struct Key {
     ch: char,
     pub finger: Finger,
-    position: Pos,
+    pub position: Pos,
 }
 
 impl Key {
@@ -39,7 +39,7 @@ impl Key {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Finger {
     pub hand: Hand,
     pub kind: FingerKind,
@@ -95,13 +95,13 @@ impl From<u8> for Finger {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Hand {
     Left,
     Right,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum FingerKind {
     Pinky,
     Ring,

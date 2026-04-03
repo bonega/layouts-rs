@@ -172,7 +172,7 @@ impl Bigram {
 
 #[derive(PartialEq, Debug)]
 pub struct Unigram {
-    key: Key,
+    pub key: Key,
 }
 
 impl Unigram {
