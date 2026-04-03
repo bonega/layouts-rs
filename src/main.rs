@@ -1,7 +1,7 @@
 use layouts_rs::{
     analyzer::Analyzer,
     corpus::Corpus,
-    layout::Layout,
+    layout::{Layout, Pos},
     report::{Report, ReportMetrics},
 };
 
@@ -17,6 +17,16 @@ fn main() {
             vec![1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
             vec![1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
             vec![1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
+        ],
+        vec![
+            Pos::new(1, 1),
+            Pos::new(1, 2),
+            Pos::new(1, 3),
+            Pos::new(1, 4),
+            Pos::new(1, 7),
+            Pos::new(1, 8),
+            Pos::new(1, 9),
+            Pos::new(1, 10),
         ],
     )
     .unwrap();

@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Pos {
     pub r: usize,
@@ -15,14 +17,16 @@ pub struct Key {
     ch: char,
     pub finger: Finger,
     pub position: Pos,
+    finger_home: bool,
 }
 
 impl Key {
-    pub fn new(ch: char, finger: Finger, position: Pos) -> Self {
+    pub fn new(ch: char, finger: Finger, position: Pos, finger_home: bool) -> Self {
         Self {
             ch,
             finger,
             position,
+            finger_home,
         }
     }
 
@@ -116,12 +120,39 @@ pub struct Layout<const ROWS: usize = 3, const COLUMNS: usize = 12> {
 }
 
 impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
-    pub fn new(definition: &str, finger_assignment: Vec<Vec<u8>>) -> anyhow::Result<Self> {
+    pub fn new(
+        definition: &str,
+        finger_assignment: Vec<Vec<u8>>,
+        finger_home_positions: Vec<Pos>,
+    ) -> anyhow::Result<Self> {
         let definition = definition
             .chars()
             .filter(|c| !c.is_whitespace())
             .collect::<String>();
 
+        Self::check_definition(&definition)?;
+        Self::check_finger_assignment(&finger_assignment)?;
+        Self::check_finger_home_positions(&finger_assignment, &finger_home_positions)?;
+
+        let mut keys = Self::default_keys();
+        for (index, ch) in definition.chars().enumerate() {
+            let row = index / COLUMNS;
+            let column = index % COLUMNS;
+
+            keys[row][column] = Some(Key::new(
+                ch,
+                Finger::from(finger_assignment[row][column]),
+                Pos::new(row, column),
+                finger_home_positions
+                    .iter()
+                    .any(|pos| pos.r == row && pos.c == column),
+            ));
+        }
+
+        Ok(Self { keys })
+    }
+
+    fn check_definition(definition: &str) -> anyhow::Result<()> {
         if definition.len() != ROWS * COLUMNS {
             anyhow::bail!(
                 "expected {ROWS} rows and {COLUMNS} columns, received {} characters",
@@ -129,6 +160,10 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
             );
         }
 
+        Ok(())
+    }
+
+    fn check_finger_assignment(finger_assignment: &Vec<Vec<u8>>) -> anyhow::Result<()> {
         if finger_assignment.len() != ROWS
             || finger_assignment.iter().any(|row| row.len() != COLUMNS)
         {
@@ -143,19 +178,34 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
             );
         }
 
-        let mut keys = Self::default_keys();
-        for (index, ch) in definition.chars().enumerate() {
-            let row = index / COLUMNS;
-            let column = index % COLUMNS;
+        Ok(())
+    }
 
-            keys[row][column] = Some(Key::new(
-                ch,
-                Finger::from(finger_assignment[row][column]),
-                Pos::new(row, column),
-            ));
+    fn check_finger_home_positions(
+        finger_assignment: &[Vec<u8>],
+        finger_home_positions: &[Pos],
+    ) -> anyhow::Result<()> {
+        let mut fingers_with_home = HashSet::<u8>::new();
+
+        for pos in finger_home_positions {
+            if pos.r >= finger_assignment.len() || pos.c >= finger_assignment[pos.r].len() {
+                anyhow::bail!("finger home position {pos:?} is out of bounds");
+            }
+
+            let finger_value = finger_assignment[pos.r][pos.c];
+            fingers_with_home.insert(finger_value.into());
         }
 
-        Ok(Self { keys })
+        for row in finger_assignment {
+            for &finger_value in row {
+                let finger = finger_value.into();
+                if !fingers_with_home.contains(&finger) {
+                    anyhow::bail!("finger {finger:?} does not have an home position");
+                }
+            }
+        }
+
+        Ok(())
     }
 
     pub fn char_at(&self, position: Pos) -> Option<char> {
@@ -217,6 +267,16 @@ pub mod fixtures {
                 vec![1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
                 vec![1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
                 vec![1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
+            ],
+            vec![
+                pos!(1, 1),
+                pos!(1, 2),
+                pos!(1, 3),
+                pos!(1, 4),
+                pos!(1, 7),
+                pos!(1, 8),
+                pos!(1, 9),
+                pos!(1, 10),
             ],
         )
         .unwrap()
@@ -291,12 +351,65 @@ mod tests {
 
         #[test]
         fn it_builds_from_configuration() {
-            check!(Layout::<2, 2>::new("abcd", vec![vec![1, 2], vec![1, 2]]).is_ok());
-            check!(Layout::<2, 3>::new("abcdef", vec![vec![1, 2, 3], vec![1, 2, 3]]).is_ok());
-            check!(Layout::<2, 2>::new("aaaa", vec![vec![1, 2], vec![1, 2]]).is_ok());
+            check!(
+                Layout::<2, 2>::new(
+                    "abcd",
+                    vec![vec![1, 2], vec![1, 2]],
+                    vec![pos!(0, 0), pos!(0, 1)]
+                )
+                .is_ok()
+            );
+            check!(
+                Layout::<2, 3>::new(
+                    "abcdef",
+                    vec![vec![1, 2, 3], vec![1, 2, 3]],
+                    vec![pos!(0, 0), pos!(0, 1), pos!(0, 2)]
+                )
+                .is_ok()
+            );
+            check!(
+                Layout::<2, 2>::new(
+                    "aaaa",
+                    vec![vec![1, 2], vec![1, 2]],
+                    vec![pos!(0, 0), pos!(0, 1)]
+                )
+                .is_ok()
+            );
 
-            check!(Layout::<2, 2>::new("abcde", vec![vec![1, 2], vec![1, 2]]).is_err());
-            check!(Layout::<2, 2>::new("abcd", vec![vec![1, 2], vec![1, 2, 3]]).is_err());
+            check!(
+                Layout::<2, 2>::new(
+                    "abcde",
+                    vec![vec![1, 2], vec![1, 2]],
+                    vec![pos!(0, 0), pos!(0, 1)]
+                )
+                .is_err()
+            );
+            check!(
+                Layout::<2, 2>::new(
+                    "abcd",
+                    vec![vec![1, 2], vec![1, 2, 3]],
+                    vec![pos!(0, 0), pos!(0, 1)]
+                )
+                .is_err()
+            );
+
+            check!(Layout::<2, 2>::new("abcd", vec![vec![1, 2], vec![1, 2]], vec![]).is_err());
+            check!(
+                Layout::<2, 2>::new(
+                    "abcd",
+                    vec![vec![1, 2], vec![1, 2]],
+                    vec![pos!(0, 0), pos!(0, 0)]
+                )
+                .is_err()
+            );
+            check!(
+                Layout::<2, 2>::new(
+                    "abcd",
+                    vec![vec![1, 2], vec![1, 2]],
+                    vec![pos!(0, 0), pos!(1, 0)]
+                )
+                .is_err()
+            );
         }
 
         #[test]
@@ -307,7 +420,15 @@ mod tests {
             a b c
             d e f
             "#,
-                    vec![vec![1, 2, 3], vec![1, 2, 3]]
+                    vec![vec![1, 2, 3], vec![1, 2, 3]],
+                    vec![
+                        pos!(0, 0),
+                        pos!(0, 1),
+                        pos!(0, 2),
+                        pos!(1, 0),
+                        pos!(1, 1),
+                        pos!(1, 2)
+                    ]
                 )
                 .is_ok()
             );
@@ -315,11 +436,16 @@ mod tests {
 
         #[test]
         fn it_returns_key_by_pos() {
-            let layout = Layout::<2, 3>::new("abcdef", vec![vec![1, 2, 3], vec![1, 2, 3]]).unwrap();
+            let layout = Layout::<2, 3>::new(
+                "abcdef",
+                vec![vec![1, 2, 3], vec![1, 2, 3]],
+                vec![pos!(0, 0), pos!(0, 1), pos!(0, 2)],
+            )
+            .unwrap();
 
-            check!(layout.key_at(Pos::new(0, 0)) == Some(&key!('a', 1, pos!(0, 0))));
-            check!(layout.key_at(Pos::new(0, 1)) == Some(&key!('b', 2, pos!(0, 1))));
-            check!(layout.key_at(Pos::new(0, 2)) == Some(&key!('c', 3, pos!(0, 2))));
+            check!(layout.key_at(Pos::new(0, 0)) == Some(&finger_home_key!('a', 1, pos!(0, 0))));
+            check!(layout.key_at(Pos::new(0, 1)) == Some(&finger_home_key!('b', 2, pos!(0, 1))));
+            check!(layout.key_at(Pos::new(0, 2)) == Some(&finger_home_key!('c', 3, pos!(0, 2))));
             check!(layout.key_at(Pos::new(1, 0)) == Some(&key!('d', 1, pos!(1, 0))));
             check!(layout.key_at(Pos::new(1, 1)) == Some(&key!('e', 2, pos!(1, 1))));
             check!(layout.key_at(Pos::new(1, 2)) == Some(&key!('f', 3, pos!(1, 2))));
@@ -329,10 +455,15 @@ mod tests {
 
         #[test]
         fn it_returns_key_by_char() {
-            let layout = Layout::<2, 2>::new("abcd", vec![vec![1, 2], vec![1, 2]]).unwrap();
+            let layout = Layout::<2, 2>::new(
+                "abcd",
+                vec![vec![1, 2], vec![1, 2]],
+                vec![pos!(0, 0), pos!(0, 1)],
+            )
+            .unwrap();
 
-            check!(layout.key_for('a') == Some(&key!('a', 1, pos!(0, 0))));
-            check!(layout.key_for('b') == Some(&key!('b', 2, pos!(0, 1))));
+            check!(layout.key_for('a') == Some(&finger_home_key!('a', 1, pos!(0, 0))));
+            check!(layout.key_for('b') == Some(&finger_home_key!('b', 2, pos!(0, 1))));
             check!(layout.key_for('c') == Some(&key!('c', 1, pos!(1, 0))));
             check!(layout.key_for('d') == Some(&key!('d', 2, pos!(1, 1))));
             check!(layout.key_for('e') == None);
@@ -340,7 +471,12 @@ mod tests {
 
         #[test]
         fn it_returns_char_by_pos() {
-            let layout = Layout::<2, 2>::new("abcd", vec![vec![1, 2], vec![1, 2]]).unwrap();
+            let layout = Layout::<2, 2>::new(
+                "abcd",
+                vec![vec![1, 2], vec![1, 2]],
+                vec![pos!(0, 0), pos!(0, 1)],
+            )
+            .unwrap();
 
             check!(layout.char_at(Pos::new(0, 0)) == Some('a'));
             check!(layout.char_at(Pos::new(0, 1)) == Some('b'));
@@ -352,8 +488,12 @@ mod tests {
 
         #[test]
         fn it_sets_char_for_key() {
-            let mut layout =
-                Layout::<2, 3>::new("abcdef", vec![vec![1, 2, 3], vec![1, 2, 3]]).unwrap();
+            let mut layout = Layout::<2, 2>::new(
+                "abcd",
+                vec![vec![1, 2], vec![1, 2]],
+                vec![pos!(0, 0), pos!(0, 1)],
+            )
+            .unwrap();
 
             check!(layout.set_char(Pos::new(0, 0), 'x').is_ok());
             check!(layout.char_at(Pos::new(0, 0)) == Some('x'));
