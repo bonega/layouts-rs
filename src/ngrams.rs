@@ -1,7 +1,7 @@
 use crate::layout::{FingerKind, Key};
 
 #[derive(PartialEq, Debug)]
-struct Trigram {
+pub struct Trigram {
     kind: TrigramKind,
     key1: Key,
     key2: Key,
@@ -99,7 +99,7 @@ impl Trigram {
 }
 
 #[derive(PartialEq, Debug)]
-struct Bigram {
+pub struct Bigram {
     kind: BigramKind,
     key1: Key,
     key2: Key,
@@ -167,6 +167,17 @@ impl Bigram {
         }
 
         return BigramKind::Other;
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct Unigram {
+    key: Key,
+}
+
+impl Unigram {
+    pub fn new(key: &Key) -> Self {
+        Self { key: key.clone() }
     }
 }
 

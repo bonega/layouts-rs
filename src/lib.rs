@@ -12,6 +12,7 @@ macro_rules! key {
     };
 }
 
+pub mod analyzer;
 pub mod corpus;
 pub mod layout;
 pub mod ngrams;
