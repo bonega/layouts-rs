@@ -1,6 +1,25 @@
 use crate::layout::{FingerKind, Key};
 
 #[derive(PartialEq, Debug)]
+struct Trigram {
+    kinds: Vec<TrigramKind>,
+    key1: Key,
+    key2: Key,
+    key3: Key,
+}
+
+#[derive(PartialEq, Debug)]
+pub enum TrigramKind {
+    SameFingerSkip { skips: u8, same_hand: bool },
+    RollIn { triple: bool },
+    RollOut { triple: bool },
+    Roll { triple: bool, inward: bool },
+    Redirect { weak: bool },
+    Alternation,
+    Other,
+}
+
+#[derive(PartialEq, Debug)]
 struct Bigram {
     kinds: Vec<BigramKind>,
     key1: Key,
@@ -65,6 +84,85 @@ impl Ngrams {
             kinds,
             key1: key1.clone(),
             key2: key2.clone(),
+        }
+    }
+
+    pub fn classify_trigram(key1: &Key, key2: &Key, key3: &Key) -> Trigram {
+        let mut kinds = Vec::new();
+
+        if key1.finger == key3.finger && key1.finger != key2.finger {
+            let row_distance = key1.row_distance(key3);
+            let col_distance = key1.column_distance(key3);
+
+            if row_distance > 0 || col_distance > 0 {
+                kinds.push(TrigramKind::SameFingerSkip {
+                    skips: row_distance as u8 + col_distance as u8,
+                    same_hand: key2.finger.hand == key1.finger.hand,
+                });
+            }
+        }
+
+        if key1.finger.hand == key2.finger.hand && key2.finger.hand == key3.finger.hand {
+            if key1.finger < key2.finger && key2.finger < key3.finger {
+                kinds.push(TrigramKind::Roll {
+                    triple: true,
+                    inward: true,
+                });
+            }
+            if key1.finger > key2.finger && key2.finger > key3.finger {
+                kinds.push(TrigramKind::Roll {
+                    triple: true,
+                    inward: false,
+                });
+            }
+
+            if (key1.finger < key2.finger && key3.finger < key2.finger
+                || key1.finger > key2.finger && key3.finger > key2.finger)
+                && key1.finger.hand == key3.finger.hand
+                && !key1.same_finger(key3)
+            {
+                if key1.finger.kind == FingerKind::Index
+                    || key2.finger.kind == FingerKind::Index
+                    || key3.finger.kind == FingerKind::Index
+                {
+                    kinds.push(TrigramKind::Redirect { weak: true });
+                } else {
+                    kinds.push(TrigramKind::Redirect { weak: false });
+                }
+            }
+        }
+
+        if key1.finger.hand == key2.finger.hand && key2.finger.hand != key3.finger.hand {
+            if key1.finger < key2.finger {
+                kinds.push(TrigramKind::Roll {
+                    triple: false,
+                    inward: true,
+                });
+            }
+            if key1.finger > key2.finger {
+                kinds.push(TrigramKind::Roll {
+                    triple: false,
+                    inward: false,
+                });
+            }
+        }
+
+        if key1.finger.hand == key3.finger.hand
+            && key2.finger.hand != key1.finger.hand
+            && !key1.same_finger(&key3)
+        {
+            kinds.push(TrigramKind::Alternation);
+        }
+
+        if kinds.is_empty() {
+            kinds.push(TrigramKind::Other);
+        }
+
+        Trigram {
+            kinds,
+            key1: key1.clone(),
+            key2: key2.clone(),
+            key3: key3.clone(),
         }
     }
 }
@@ -167,5 +265,123 @@ mod bigram_tests {
 
         check!(Ngrams::classify_bigram(&key1, &key2).kinds == vec![BigramKind::Other]);
         check!(Ngrams::classify_bigram(&key2, &key1).kinds == vec![BigramKind::Other]);
+    }
+}
+
+#[cfg(test)]
+mod trigram_tests {
+    use assert2::check;
+    use rstest::rstest;
+
+    use crate::layout::{Layout, fixtures::qwerty};
+
+    use super::*;
+
+    #[rstest]
+    #[case::left_1_vertical('q', 'w', 'a', vec![TrigramKind::SameFingerSkip { skips: 1, same_hand: true }])]
+    #[case::left_2_vertical('q', 'w', 'z', vec![TrigramKind::SameFingerSkip { skips: 2, same_hand: true }])]
+    #[case::left_1_vertical('q', 'h', 'a', vec![TrigramKind::SameFingerSkip { skips: 1, same_hand: false }])]
+    #[case::left_2_vertical('q', 'h', 'z', vec![TrigramKind::SameFingerSkip { skips: 2, same_hand: false }])]
+    #[case::left_1_horizontal('r', 'w', 't', vec![TrigramKind::SameFingerSkip { skips: 1, same_hand: true }])]
+    #[case::left_1_horizontal_cross_hand('r', 'u', 't', vec![TrigramKind::SameFingerSkip { skips: 1, same_hand: false }])]
+    #[case::right_1_vertical('u', 'i', 'j', vec![TrigramKind::SameFingerSkip { skips: 1, same_hand: true }])]
+    #[case::right_2_vertical('u', 'i', 'm', vec![TrigramKind::SameFingerSkip { skips: 2, same_hand: true }])]
+    #[case::right_1_vertical('u', 'g', 'j', vec![TrigramKind::SameFingerSkip { skips: 1, same_hand: false }])]
+    #[case::right_2_vertical('u', 'g', 'm', vec![TrigramKind::SameFingerSkip { skips: 2, same_hand: false }])]
+    fn it_calculates_trigram_finger_skip(
+        #[case] ch1: char,
+        #[case] ch2: char,
+        #[case] ch3: char,
+        #[case] expected_kinds: Vec<TrigramKind>,
+        qwerty: Layout,
+    ) {
+        let key1 = qwerty.key_for(ch1).unwrap();
+        let key2 = qwerty.key_for(ch2).unwrap();
+        let key3 = qwerty.key_for(ch3).unwrap();
+
+        check!(Ngrams::classify_trigram(&key1, &key2, &key3).kinds == expected_kinds);
+    }
+
+    #[rstest]
+    #[case::left_triple('q', 'w', 'e', vec![TrigramKind::Roll { triple: true , inward: true }])]
+    #[case::left_triple('q', 'e', 't', vec![TrigramKind::Roll { triple: true , inward: true }])]
+    #[case::left_triple('t', 'e', 'q', vec![TrigramKind::Roll { triple: true, inward: false }])]
+    #[case::left_triple('e', 'w', 'q', vec![TrigramKind::Roll { triple: true, inward: false }])]
+    #[case::right_triple('o', 'i', 'u', vec![TrigramKind::Roll { triple: true , inward: true }])]
+    #[case::right_triple('p', 'i', 'y', vec![TrigramKind::Roll { triple: true , inward: true }])]
+    #[case::right_triple('y', 'i', 'p', vec![TrigramKind::Roll { triple: true, inward: false }])]
+    #[case::right_triple('i', 'o', 'p', vec![TrigramKind::Roll { triple: true, inward: false }])]
+    #[case::left_triple_mixed_rows('a', 'w', 'd', vec![TrigramKind::Roll { triple: true , inward: true }])]
+    #[case::left_double('q', 'w', 'p', vec![TrigramKind::Roll { triple: false , inward: true }])]
+    #[case::left_double('q', 'e', 'p', vec![TrigramKind::Roll { triple: false , inward: true }])]
+    #[case::left_double('t', 'e', 'p', vec![TrigramKind::Roll { triple: false, inward: false }])]
+    #[case::left_double('e', 'w', 'p', vec![TrigramKind::Roll { triple: false, inward: false }])]
+    #[case::right_double('o', 'i', 'a', vec![TrigramKind::Roll { triple: false , inward: true }])]
+    #[case::right_double('p', 'i', 'a', vec![TrigramKind::Roll { triple: false , inward: true }])]
+    #[case::right_double('y', 'i', 'a', vec![TrigramKind::Roll { triple: false, inward: false }])]
+    #[case::right_double('i', 'o', 'a', vec![TrigramKind::Roll { triple: false, inward: false }])]
+    fn it_calculates_trigram_roll(
+        #[case] ch1: char,
+        #[case] ch2: char,
+        #[case] ch3: char,
+        #[case] expected_kinds: Vec<TrigramKind>,
+        qwerty: Layout,
+    ) {
+        let key1 = qwerty.key_for(ch1).unwrap();
+        let key2 = qwerty.key_for(ch2).unwrap();
+        let key3 = qwerty.key_for(ch3).unwrap();
+
+        check!(Ngrams::classify_trigram(&key1, &key2, &key3).kinds == expected_kinds);
+    }
+
+    #[rstest]
+    #[case::left_strong('q', 'e', 'w',vec![TrigramKind::Redirect { weak: false }])]
+    #[case::left_weak('q', 't', 'e', vec![TrigramKind::Redirect { weak: true }])]
+    fn it_calculates_trigram_redirect(
+        #[case] ch1: char,
+        #[case] ch2: char,
+        #[case] ch3: char,
+        #[case] expected_kinds: Vec<TrigramKind>,
+        qwerty: Layout,
+    ) {
+        let key1 = qwerty.key_for(ch1).unwrap();
+        let key2 = qwerty.key_for(ch2).unwrap();
+        let key3 = qwerty.key_for(ch3).unwrap();
+
+        check!(Ngrams::classify_trigram(&key1, &key2, &key3).kinds == expected_kinds);
+    }
+
+    #[rstest]
+    #[case::simple_alternation('q', 'h', 'w', vec![TrigramKind::Alternation])]
+    #[case::right_alternation('u', 'a', 'i', vec![TrigramKind::Alternation])]
+    fn it_calculates_trigram_alternation(
+        #[case] ch1: char,
+        #[case] ch2: char,
+        #[case] ch3: char,
+        #[case] expected_kinds: Vec<TrigramKind>,
+        qwerty: Layout,
+    ) {
+        let key1 = qwerty.key_for(ch1).unwrap();
+        let key2 = qwerty.key_for(ch2).unwrap();
+        let key3 = qwerty.key_for(ch3).unwrap();
+
+        check!(Ngrams::classify_trigram(&key1, &key2, &key3).kinds == expected_kinds);
+    }
+
+    #[rstest]
+    #[case('q', 'q', 'a')]
+    #[case('t', 'r', 'e')]
+    #[case('q', 't', 'q')]
+    fn it_calculates_trigram_other(
+        #[case] ch1: char,
+        #[case] ch2: char,
+        #[case] ch3: char,
+        qwerty: Layout,
+    ) {
+        let key1 = qwerty.key_for(ch1).unwrap();
+        let key2 = qwerty.key_for(ch2).unwrap();
+        let key3 = qwerty.key_for(ch3).unwrap();
+
+        check!(Ngrams::classify_trigram(&key1, &key2, &key3).kinds == vec![TrigramKind::Other]);
     }
 }
