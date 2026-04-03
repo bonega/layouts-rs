@@ -1,8 +1,4 @@
-use layouts_rs::{
-    analyzer::{Analyzer, ReportMetrics},
-    corpus::Corpus,
-    layout::Layout,
-};
+use layouts_rs::{analyzer::Analyzer, corpus::Corpus, layout::Layout, report::ReportMetrics};
 
 fn main() {
     let corpus = Corpus::new([("abcde".to_string(), 10.0), ("cdefg".to_string(), 5.0)]);
