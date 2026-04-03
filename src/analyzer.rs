@@ -6,16 +6,16 @@ use crate::{
     ngrams::{Bigram, Trigram, Unigram},
 };
 
-struct Analyzer {
+pub struct Analyzer {
     corpus: Corpus,
 }
 
 impl Analyzer {
-    fn new(corpus: Corpus) -> Self {
+    pub fn new(corpus: Corpus) -> Self {
         Self { corpus }
     }
 
-    fn analyze(&self, layout: &Layout, metrics: &mut impl Metrics) {
+    pub fn analyze(&self, layout: &Layout, metrics: &mut impl Metrics) {
         for (char, count) in self.corpus.unigrams.iter() {
             let Some(key) = layout.key_for(*char) else {
                 continue;
@@ -48,19 +48,19 @@ impl Analyzer {
 }
 
 #[cfg_attr(test, mockall::automock)]
-trait Metrics {
+pub trait Metrics {
     fn collect_metric(&mut self, metric: Metric);
 }
 
 #[derive(Debug, PartialEq)]
-enum Metric {
+pub enum Metric {
     Trigram(Trigram, f64),
     Bigram(Bigram, f64),
     Unigram(Unigram, f64),
 }
 
-#[derive(Default)]
-struct ReportMetrics {
+#[derive(Default, Debug)]
+pub struct ReportMetrics {
     unigram_metrics: ReportUnigramMetrics,
 }
 
@@ -70,13 +70,13 @@ impl Metrics for ReportMetrics {
             Metric::Unigram(unigram, count) => {
                 self.unigram_metrics.collect(unigram, count);
             }
-            Metric::Bigram(bigram, count) => {}
-            Metric::Trigram(trigram, count) => {}
+            Metric::Bigram(_bigram, _count) => {}
+            Metric::Trigram(_trigram, _count) => {}
         }
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct ReportUnigramMetrics {
     column_usage: HashMap<usize, f64>,
     row_usage: HashMap<usize, f64>,
