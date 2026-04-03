@@ -14,6 +14,8 @@ impl Analyzer {
     }
 
     pub fn analyze(&self, layout: &Layout, metrics: &mut impl Metrics) {
+        metrics.collect_metric(Metric::CorpusLenght(self.corpus.chars_length));
+
         for (char, count) in self.corpus.unigrams.iter() {
             let Some(key) = layout.key_for(*char) else {
                 continue;
@@ -55,6 +57,7 @@ pub enum Metric {
     Trigram(Trigram, f64),
     Bigram(Bigram, f64),
     Unigram(Unigram, f64),
+    CorpusLenght(f64),
 }
 
 #[cfg(test)]
@@ -78,7 +81,11 @@ mod tests {
         };
 
         let mut metrics = MockMetrics::new();
-        metrics.expect_collect_metric().never();
+        metrics
+            .expect_collect_metric()
+            .with(eq(Metric::CorpusLenght(100.0)))
+            .once()
+            .return_const(());
 
         let analyzer = Analyzer::new(corpus);
 
@@ -98,6 +105,11 @@ mod tests {
         let key = qwerty.key_for('a').unwrap();
 
         let mut metrics = MockMetrics::new();
+        metrics
+            .expect_collect_metric()
+            .with(eq(Metric::CorpusLenght(100.0)))
+            .once()
+            .return_const(());
         metrics
             .expect_collect_metric()
             .with(eq(Metric::Unigram(Unigram::new(&key), 1.0)))
@@ -123,6 +135,7 @@ mod tests {
     fn it_generates_metrics(qwerty: Layout) {
         #[derive(Default, Debug, PartialEq)]
         struct FakeMetrics {
+            total_chars: f64,
             unigrams: f64,
             bigrams: f64,
             trigrams: f64,
@@ -139,6 +152,9 @@ mod tests {
                     }
                     Metric::Trigram(_, count) => {
                         self.trigrams += count;
+                    }
+                    Metric::CorpusLenght(length) => {
+                        self.total_chars = length;
                     }
                 }
             }
@@ -164,6 +180,7 @@ mod tests {
                     unigrams: 1.0,
                     bigrams: 2.0,
                     trigrams: 3.0,
+                    total_chars: 100.0,
                 }
         );
     }

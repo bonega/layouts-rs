@@ -8,6 +8,7 @@ use crate::{
 
 #[derive(Default, Debug)]
 pub struct ReportMetrics {
+    total_chars: f64,
     unigram_metrics: ReportUnigramMetrics,
 }
 
@@ -19,6 +20,9 @@ impl Metrics for ReportMetrics {
             }
             Metric::Bigram(_bigram, _count) => {}
             Metric::Trigram(_trigram, _count) => {}
+            Metric::CorpusLenght(total_chars) => {
+                self.total_chars = total_chars;
+            }
         }
     }
 }
