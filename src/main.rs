@@ -1,7 +1,12 @@
-use layouts_rs::{analyzer::Analyzer, corpus::Corpus, layout::Layout, report::ReportMetrics};
+use layouts_rs::{
+    analyzer::Analyzer,
+    corpus::Corpus,
+    layout::Layout,
+    report::{Report, ReportMetrics},
+};
 
 fn main() {
-    let corpus = Corpus::new([("abcde".to_string(), 10.0), ("cdefg".to_string(), 5.0)]);
+    let corpus = Corpus::new([("hello".to_string(), 10.0)]);
     let layout = Layout::new(
         r#"
             _ q w e r t   y u i o p _
@@ -21,5 +26,7 @@ fn main() {
     let analyzer = Analyzer::new(corpus);
     analyzer.analyze(&layout, &mut report_metrics);
 
-    println!("{:#?}", report_metrics);
+    let report = Report::from(report_metrics);
+
+    println!("{report}");
 }
