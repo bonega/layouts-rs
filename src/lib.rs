@@ -8,10 +8,14 @@ macro_rules! pos {
 #[cfg(test)]
 macro_rules! key {
     ($ch:expr, $finger_number:expr, $pos:expr) => {
+        key!($ch, $finger_number, $pos, 1.0)
+    };
+    ($ch:expr, $finger_number:expr, $pos:expr, $effort:expr) => {
         crate::layout::Key::new(
             $ch,
             crate::layout::Finger::from($finger_number),
             $pos,
+            $effort,
             false,
         )
     };
@@ -20,7 +24,16 @@ macro_rules! key {
 #[cfg(test)]
 macro_rules! finger_home_key {
     ($ch:expr, $finger_number:expr, $pos:expr) => {
-        crate::layout::Key::new($ch, crate::layout::Finger::from($finger_number), $pos, true)
+        finger_home_key!($ch, $finger_number, $pos, 1.0)
+    };
+    ($ch:expr, $finger_number:expr, $pos:expr, $effort:expr) => {
+        crate::layout::Key::new(
+            $ch,
+            crate::layout::Finger::from($finger_number),
+            $pos,
+            $effort,
+            true,
+        )
     };
 }
 

@@ -18,14 +18,16 @@ pub struct Key {
     pub finger: Finger,
     pub position: Pos,
     pub finger_home: bool,
+    pub effort: f64,
 }
 
 impl Key {
-    pub fn new(ch: char, finger: Finger, position: Pos, finger_home: bool) -> Self {
+    pub fn new(ch: char, finger: Finger, position: Pos, effort: f64, finger_home: bool) -> Self {
         Self {
             ch,
             finger,
             position,
+            effort,
             finger_home,
         }
     }
@@ -123,6 +125,7 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
     pub fn new(
         definition: &str,
         finger_assignment: Vec<Vec<u8>>,
+        finger_effort: Vec<Vec<f64>>,
         finger_home_positions: Vec<Pos>,
     ) -> anyhow::Result<Self> {
         let definition = definition
@@ -131,7 +134,8 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
             .collect::<String>();
 
         Self::check_definition(&definition)?;
-        Self::check_finger_assignment(&finger_assignment)?;
+        Self::check_matrix("finger assignment", &finger_assignment)?;
+        Self::check_matrix("finger effort", &finger_effort)?;
         Self::check_finger_home_positions(&finger_assignment, &finger_home_positions)?;
 
         let mut keys = Self::default_keys();
@@ -143,6 +147,7 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
                 ch,
                 Finger::from(finger_assignment[row][column]),
                 Pos::new(row, column),
+                finger_effort[row][column] as f64,
                 finger_home_positions
                     .iter()
                     .any(|pos| pos.r == row && pos.c == column),
@@ -163,18 +168,12 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
         Ok(())
     }
 
-    fn check_finger_assignment(finger_assignment: &Vec<Vec<u8>>) -> anyhow::Result<()> {
-        if finger_assignment.len() != ROWS
-            || finger_assignment.iter().any(|row| row.len() != COLUMNS)
-        {
+    fn check_matrix<T>(matrix_name: &str, matrix: &Vec<Vec<T>>) -> anyhow::Result<()> {
+        if matrix.len() != ROWS || matrix.iter().any(|row| row.len() != COLUMNS) {
             anyhow::bail!(
-                "expected finger assignment to have {ROWS} rows and {COLUMNS} columns, received {} rows and {} columns",
-                finger_assignment.len(),
-                finger_assignment
-                    .iter()
-                    .map(|row| row.len())
-                    .max()
-                    .unwrap_or(0)
+                "expected {matrix_name} to have {ROWS} rows and {COLUMNS} columns, received {} rows and {} columns",
+                matrix.len(),
+                matrix.iter().map(|row| row.len()).max().unwrap_or(0)
             );
         }
 
@@ -269,6 +268,11 @@ pub mod fixtures {
                 vec![1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
             ],
             vec![
+                vec![3.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 3.0],
+                vec![2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0],
+                vec![3.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 3.0],
+            ],
+            vec![
                 pos!(1, 1),
                 pos!(1, 2),
                 pos!(1, 3),
@@ -355,6 +359,7 @@ mod tests {
                 Layout::<2, 2>::new(
                     "abcd",
                     vec![vec![1, 2], vec![1, 2]],
+                    vec![vec![1.0, 1.0], vec![1.0, 1.0]],
                     vec![pos!(0, 0), pos!(0, 1)]
                 )
                 .is_ok()
@@ -363,6 +368,7 @@ mod tests {
                 Layout::<2, 3>::new(
                     "abcdef",
                     vec![vec![1, 2, 3], vec![1, 2, 3]],
+                    vec![vec![1.0, 1.0, 1.0], vec![1.0, 1.0, 1.0]],
                     vec![pos!(0, 0), pos!(0, 1), pos!(0, 2)]
                 )
                 .is_ok()
@@ -371,6 +377,7 @@ mod tests {
                 Layout::<2, 2>::new(
                     "aaaa",
                     vec![vec![1, 2], vec![1, 2]],
+                    vec![vec![1.0, 1.0], vec![1.0, 1.0]],
                     vec![pos!(0, 0), pos!(0, 1)]
                 )
                 .is_ok()
@@ -380,6 +387,7 @@ mod tests {
                 Layout::<2, 2>::new(
                     "abcde",
                     vec![vec![1, 2], vec![1, 2]],
+                    vec![vec![1.0, 1.0], vec![1.0, 1.0]],
                     vec![pos!(0, 0), pos!(0, 1)]
                 )
                 .is_err()
@@ -388,16 +396,35 @@ mod tests {
                 Layout::<2, 2>::new(
                     "abcd",
                     vec![vec![1, 2], vec![1, 2, 3]],
+                    vec![vec![1.0, 1.0], vec![1.0, 1.0]],
                     vec![pos!(0, 0), pos!(0, 1)]
                 )
                 .is_err()
             );
 
-            check!(Layout::<2, 2>::new("abcd", vec![vec![1, 2], vec![1, 2]], vec![]).is_err());
             check!(
                 Layout::<2, 2>::new(
                     "abcd",
                     vec![vec![1, 2], vec![1, 2]],
+                    vec![vec![1.0, 1.0], vec![1.0]],
+                    vec![pos!(0, 0), pos!(0, 1)]
+                )
+                .is_err()
+            );
+            check!(
+                Layout::<2, 2>::new(
+                    "abcd",
+                    vec![vec![1, 2], vec![1, 2]],
+                    vec![vec![1.0, 1.0], vec![1.0, 1.0]],
+                    vec![]
+                )
+                .is_err()
+            );
+            check!(
+                Layout::<2, 2>::new(
+                    "abcd",
+                    vec![vec![1, 2], vec![1, 2]],
+                    vec![vec![1.0, 1.0], vec![1.0, 1.0]],
                     vec![pos!(0, 0), pos!(0, 0)]
                 )
                 .is_err()
@@ -406,6 +433,7 @@ mod tests {
                 Layout::<2, 2>::new(
                     "abcd",
                     vec![vec![1, 2], vec![1, 2]],
+                    vec![vec![1.0, 1.0], vec![1.0, 1.0]],
                     vec![pos!(0, 0), pos!(1, 0)]
                 )
                 .is_err()
@@ -421,6 +449,7 @@ mod tests {
             d e f
             "#,
                     vec![vec![1, 2, 3], vec![1, 2, 3]],
+                    vec![vec![1.0, 1.0, 1.0], vec![1.0, 1.0, 1.0]],
                     vec![
                         pos!(0, 0),
                         pos!(0, 1),
@@ -439,16 +468,23 @@ mod tests {
             let layout = Layout::<2, 3>::new(
                 "abcdef",
                 vec![vec![1, 2, 3], vec![1, 2, 3]],
+                vec![vec![1.0, 1.0, 1.0], vec![2.0, 2.0, 2.0]],
                 vec![pos!(0, 0), pos!(0, 1), pos!(0, 2)],
             )
             .unwrap();
 
-            check!(layout.key_at(Pos::new(0, 0)) == Some(&finger_home_key!('a', 1, pos!(0, 0))));
-            check!(layout.key_at(Pos::new(0, 1)) == Some(&finger_home_key!('b', 2, pos!(0, 1))));
-            check!(layout.key_at(Pos::new(0, 2)) == Some(&finger_home_key!('c', 3, pos!(0, 2))));
-            check!(layout.key_at(Pos::new(1, 0)) == Some(&key!('d', 1, pos!(1, 0))));
-            check!(layout.key_at(Pos::new(1, 1)) == Some(&key!('e', 2, pos!(1, 1))));
-            check!(layout.key_at(Pos::new(1, 2)) == Some(&key!('f', 3, pos!(1, 2))));
+            check!(
+                layout.key_at(Pos::new(0, 0)) == Some(&finger_home_key!('a', 1, pos!(0, 0), 1.0))
+            );
+            check!(
+                layout.key_at(Pos::new(0, 1)) == Some(&finger_home_key!('b', 2, pos!(0, 1), 1.0))
+            );
+            check!(
+                layout.key_at(Pos::new(0, 2)) == Some(&finger_home_key!('c', 3, pos!(0, 2), 1.0))
+            );
+            check!(layout.key_at(Pos::new(1, 0)) == Some(&key!('d', 1, pos!(1, 0), 2.0)));
+            check!(layout.key_at(Pos::new(1, 1)) == Some(&key!('e', 2, pos!(1, 1), 2.0)));
+            check!(layout.key_at(Pos::new(1, 2)) == Some(&key!('f', 3, pos!(1, 2), 2.0)));
             check!(layout.key_at(Pos::new(2, 0)) == None);
             check!(layout.key_at(Pos::new(0, 3)) == None);
         }
@@ -458,6 +494,7 @@ mod tests {
             let layout = Layout::<2, 2>::new(
                 "abcd",
                 vec![vec![1, 2], vec![1, 2]],
+                vec![vec![1.0, 1.0], vec![1.0, 1.0]],
                 vec![pos!(0, 0), pos!(0, 1)],
             )
             .unwrap();
@@ -474,6 +511,7 @@ mod tests {
             let layout = Layout::<2, 2>::new(
                 "abcd",
                 vec![vec![1, 2], vec![1, 2]],
+                vec![vec![1.0, 1.0], vec![1.0, 1.0]],
                 vec![pos!(0, 0), pos!(0, 1)],
             )
             .unwrap();
@@ -491,6 +529,7 @@ mod tests {
             let mut layout = Layout::<2, 2>::new(
                 "abcd",
                 vec![vec![1, 2], vec![1, 2]],
+                vec![vec![1.0, 1.0], vec![1.0, 1.0]],
                 vec![pos!(0, 0), pos!(0, 1)],
             )
             .unwrap();
