@@ -7,7 +7,7 @@ use layouts_rs::{
 
 fn main() {
     let corpus = Corpus::new([("hello".to_string(), 10.0)]);
-    let layout = Layout::new(
+    let layout = Layout::<3, 12>::new(
         r#"
             _ q w e r t   y u i o p _
             " a s d f g   h j k l ; '

@@ -13,7 +13,11 @@ impl Analyzer {
         Self { corpus }
     }
 
-    pub fn analyze(&self, layout: &Layout, metrics: &mut impl Metrics) {
+    pub fn analyze<const C: usize, const R: usize>(
+        &self,
+        layout: &Layout<C, R>,
+        metrics: &mut impl Metrics,
+    ) {
         metrics.collect_metric(Metric::CorpusLenght(self.corpus.chars_length));
 
         for (char, count) in self.corpus.unigrams.iter() {
