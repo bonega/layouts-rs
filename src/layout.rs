@@ -223,15 +223,26 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
             .find_map(|(row, col)| self.keys[row][col].as_ref().filter(|key| key.ch == ch))
     }
 
-    pub fn set_char(&mut self, position: Pos, ch: char) -> anyhow::Result<()> {
+    pub fn set_char(&mut self, position: Pos, ch: char) {
         if position.r >= ROWS || position.c >= COLUMNS {
-            anyhow::bail!("position out of bounds");
+            return;
         }
 
         if let Some(key) = self.keys[position.r][position.c].as_mut() {
             key.ch = ch;
         }
-        Ok(())
+    }
+
+    pub fn swap_chars(&mut self, pos1: Pos, pos2: Pos) {
+        let Some(ch1) = self.char_at(pos1) else {
+            return;
+        };
+        let Some(ch2) = self.char_at(pos2) else {
+            return;
+        };
+
+        self.set_char(pos1, ch2);
+        self.set_char(pos2, ch1);
     }
 
     fn default_keys() -> [[Option<Key>; COLUMNS]; ROWS] {
@@ -533,8 +544,23 @@ mod tests {
             )
             .unwrap();
 
-            check!(layout.set_char(Pos::new(0, 0), 'x').is_ok());
+            layout.set_char(Pos::new(0, 0), 'x');
             check!(layout.char_at(Pos::new(0, 0)) == Some('x'));
+        }
+
+        #[test]
+        fn it_swaps_chars() {
+            let mut layout = Layout::<2, 2>::new(
+                "abcd",
+                vec![vec![1, 2], vec![1, 2]],
+                vec![vec![1.0, 1.0], vec![1.0, 1.0]],
+                vec![pos!(0, 0), pos!(0, 1)],
+            )
+            .unwrap();
+
+            layout.swap_chars(Pos::new(0, 0), Pos::new(1, 0));
+            check!(layout.char_at(Pos::new(0, 0)) == Some('c'));
+            check!(layout.char_at(Pos::new(1, 0)) == Some('a'));
         }
     }
 }
