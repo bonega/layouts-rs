@@ -100,7 +100,7 @@ impl Trigram {
 
 #[derive(PartialEq, Debug)]
 pub struct Bigram {
-    kind: BigramKind,
+    pub kind: BigramKind,
     key1: Key,
     key2: Key,
 }

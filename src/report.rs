@@ -4,13 +4,14 @@ use std::fmt::{Display, Formatter};
 use crate::{
     analyzer::{Metric, Metrics},
     layout::{Finger, FingerKind, Hand},
-    ngrams::Unigram,
+    ngrams::{Bigram, BigramKind, Unigram},
 };
 
 #[derive(Default, Debug)]
 pub struct ReportMetrics {
     total_chars: f64,
     unigram_metrics: ReportUnigramMetrics,
+    bigram_metrics: ReportBigramMetrics,
 }
 
 impl Metrics for ReportMetrics {
@@ -19,7 +20,9 @@ impl Metrics for ReportMetrics {
             Metric::Unigram(unigram, count) => {
                 self.unigram_metrics.collect(unigram, count);
             }
-            Metric::Bigram(_bigram, _count) => {}
+            Metric::Bigram(bigram, count) => {
+                self.bigram_metrics.collect(bigram, count);
+            }
             Metric::Trigram(_trigram, _count) => {}
             Metric::CorpusLenght(total_chars) => {
                 self.total_chars = total_chars;
@@ -51,6 +54,46 @@ impl ReportUnigramMetrics {
     }
 }
 
+#[derive(Default, Debug, PartialEq)]
+struct ReportBigramMetrics {
+    skips_1: f64,
+    skips_n: f64,
+    lateral_stretches: f64,
+    scissors: f64,
+    wide_scissors: f64,
+    others: f64,
+}
+
+impl ReportBigramMetrics {
+    fn collect(&mut self, bigram: Bigram, count: f64) {
+        match bigram.kind {
+            BigramKind::SameFingerSkip { skips } => {
+                if skips == 1 {
+                    self.skips_1 += count;
+                } else {
+                    self.skips_n += count;
+                }
+            }
+            BigramKind::LateralStretch { .. } => {
+                self.lateral_stretches += count;
+            }
+            BigramKind::Scissor {
+                col_distance,
+                row_distance,
+            } => {
+                if col_distance + row_distance > 2 {
+                    self.wide_scissors += count;
+                } else {
+                    self.scissors += count;
+                }
+            }
+            BigramKind::Other => {
+                self.others += count;
+            }
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct Report {
     effort: f64,
@@ -60,6 +103,12 @@ pub struct Report {
     row_usage: HashMap<usize, f64>,
     column_usage: HashMap<usize, f64>,
     pinky_off_home: f64,
+    bigram_skips_1: f64,
+    bigram_skips_n: f64,
+    bigram_lateral_stretches: f64,
+    bigram_scissors: f64,
+    bigram_wide_scissors: f64,
+    bigram_others: f64,
 }
 
 impl From<ReportMetrics> for Report {
@@ -108,6 +157,14 @@ impl From<ReportMetrics> for Report {
                 .map(|(column, usage)| (*column, 100.0 * usage / total_column_usage))
                 .collect(),
             pinky_off_home: 100.0 * metrics.unigram_metrics.pinky_off_home / metrics.total_chars,
+            bigram_skips_1: 100.0 * metrics.bigram_metrics.skips_1 / metrics.total_chars,
+            bigram_skips_n: 100.0 * metrics.bigram_metrics.skips_n / metrics.total_chars,
+            bigram_lateral_stretches: 100.0 * metrics.bigram_metrics.lateral_stretches
+                / metrics.total_chars,
+            bigram_scissors: 100.0 * metrics.bigram_metrics.scissors / metrics.total_chars,
+            bigram_wide_scissors: 100.0 * metrics.bigram_metrics.wide_scissors
+                / metrics.total_chars,
+            bigram_others: 100.0 * metrics.bigram_metrics.others / metrics.total_chars,
         }
     }
 }
@@ -130,6 +187,12 @@ impl Display for Report {
         for (column, usage) in &self.column_usage {
             writeln!(f, "  Column {}: {}%", column, usage)?;
         }
+        writeln!(f, "Bigram metrics:")?;
+        writeln!(f, "  Skips (1): {}%", self.bigram_skips_1)?;
+        writeln!(f, "  Skips (n): {}%", self.bigram_skips_n)?;
+        writeln!(f, "  Lateral stretches: {}%", self.bigram_lateral_stretches)?;
+        writeln!(f, "  Scissors: {}%", self.bigram_scissors)?;
+        writeln!(f, "  Others: {}%", self.bigram_others)?;
         Ok(())
     }
 }
@@ -140,9 +203,9 @@ mod report_metrics_tests {
     use rstest::rstest;
 
     use super::*;
+    use crate::layout::{Layout, fixtures::qwerty};
 
     mod unigram_metrics_tests {
-        use crate::layout::{Layout, fixtures::qwerty};
 
         use super::*;
 
@@ -212,6 +275,78 @@ mod report_metrics_tests {
             check!(metrics.effort == 9.0);
         }
     }
+
+    mod bigram_metrics_tests {
+        use crate::ngrams::Bigram;
+
+        use super::*;
+
+        #[rstest]
+        fn it_collects_skips(qwerty: Layout) {
+            let mut metrics = ReportBigramMetrics::default();
+
+            metrics.collect(
+                Bigram::new(qwerty.key_for('q').unwrap(), qwerty.key_for('a').unwrap()),
+                10.0,
+            );
+            metrics.collect(
+                Bigram::new(qwerty.key_for('q').unwrap(), qwerty.key_for('z').unwrap()),
+                20.0,
+            );
+
+            check!(metrics.skips_1 == 10.0);
+            check!(metrics.skips_n == 20.0);
+        }
+
+        #[rstest]
+        fn it_collects_lateral_stretches(qwerty: Layout) {
+            let mut metrics = ReportBigramMetrics::default();
+
+            metrics.collect(
+                Bigram::new(qwerty.key_for('d').unwrap(), qwerty.key_for('g').unwrap()),
+                10.0,
+            );
+            metrics.collect(
+                Bigram::new(qwerty.key_for('s').unwrap(), qwerty.key_for('"').unwrap()),
+                20.0,
+            );
+
+            check!(metrics.lateral_stretches == 30.0);
+        }
+
+        #[rstest]
+        fn it_collects_scissors(qwerty: Layout) {
+            let mut metrics = ReportBigramMetrics::default();
+
+            metrics.collect(
+                Bigram::new(qwerty.key_for('d').unwrap(), qwerty.key_for('t').unwrap()),
+                10.0,
+            );
+            metrics.collect(
+                Bigram::new(qwerty.key_for('d').unwrap(), qwerty.key_for('r').unwrap()),
+                20.0,
+            );
+
+            check!(metrics.wide_scissors == 10.0);
+            check!(metrics.scissors == 20.0);
+        }
+
+        #[rstest]
+        fn it_collects_others(qwerty: Layout) {
+            let mut metrics = ReportBigramMetrics::default();
+
+            metrics.collect(
+                Bigram::new(qwerty.key_for('d').unwrap(), qwerty.key_for('h').unwrap()),
+                10.0,
+            );
+            metrics.collect(
+                Bigram::new(qwerty.key_for('d').unwrap(), qwerty.key_for('f').unwrap()),
+                20.0,
+            );
+
+            check!(metrics.others == 30.0);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -237,6 +372,14 @@ mod report_tests {
                 row_usage: [(0, 20.0), (1, 40.0), (2, 60.0), (3, 80.0)].into(),
                 pinky_off_home: 10.0,
             },
+            bigram_metrics: ReportBigramMetrics {
+                skips_1: 20.0,
+                skips_n: 40.0,
+                lateral_stretches: 60.0,
+                scissors: 80.0,
+                wide_scissors: 80.0,
+                others: 40.0,
+            },
         };
 
         let report = Report::from(metrics);
@@ -257,6 +400,12 @@ mod report_tests {
                     column_usage: [(1, 10.0), (2, 20.0), (3, 30.0), (4, 40.0)].into(),
                     row_usage: [(0, 10.0), (1, 20.0), (2, 30.0), (3, 40.0)].into(),
                     pinky_off_home: 5.0,
+                    bigram_skips_1: 10.0,
+                    bigram_skips_n: 20.0,
+                    bigram_lateral_stretches: 30.0,
+                    bigram_scissors: 40.0,
+                    bigram_wide_scissors: 40.0,
+                    bigram_others: 20.0,
                 }
         );
     }
