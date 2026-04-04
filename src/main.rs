@@ -2,12 +2,12 @@ use layouts_rs::{
     analyzer::Analyzer,
     corpus::Corpus,
     layout::{Layout, Pos},
+    optimizer::{Optimizer, Weights},
     report::{Report, ReportMetrics},
     swaps::SwapMove,
 };
 
 fn main() {
-    let corpus = Corpus::new([("hello".to_string(), 10.0)]);
     let mut layout = Layout::<3, 12>::new(
         r#"
             _ e w q r t   y u i o p _
@@ -40,12 +40,24 @@ fn main() {
     let swaps = SwapMove::single_moves(&[Pos::new(0, 1), Pos::new(0, 3)]);
     swaps.iter().for_each(|swap| swap.apply(&mut layout));
 
-    let mut report_metrics = ReportMetrics::default();
-
+    let corpus = Corpus::new([("hello".to_string(), 10.0)]);
     let analyzer = Analyzer::new(corpus);
+    let mut report_metrics = ReportMetrics::default();
     analyzer.analyze(&layout, &mut report_metrics);
-
     let report = Report::from(report_metrics);
 
+    println!("{report}");
+
+    let optimizer = Optimizer::new(analyzer, Weights { effort: 1.0 });
+    let optimized_layout = optimizer.optimize(&layout, 10, None);
+
+    let corpus = Corpus::new([("hello".to_string(), 10.0)]);
+    let analyzer = Analyzer::new(corpus);
+    let mut report_metrics = ReportMetrics::default();
+    analyzer.analyze(&optimized_layout, &mut report_metrics);
+    let report = Report::from(report_metrics);
+
+    println!("-----------------------");
+    println!("Optimized Layout:");
     println!("{report}");
 }

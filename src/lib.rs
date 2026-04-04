@@ -41,5 +41,6 @@ pub mod analyzer;
 pub mod corpus;
 pub mod layout;
 pub mod ngrams;
+pub mod optimizer;
 pub mod report;
 pub mod swaps;
