@@ -30,6 +30,7 @@ impl Metrics for ReportMetrics {
 
 #[derive(Default, Debug)]
 struct ReportUnigramMetrics {
+    effort: f64,
     column_usage: HashMap<usize, f64>,
     row_usage: HashMap<usize, f64>,
     finger_usage: HashMap<Finger, f64>,
@@ -38,6 +39,8 @@ struct ReportUnigramMetrics {
 
 impl ReportUnigramMetrics {
     fn collect(&mut self, unigram: Unigram, count: f64) {
+        self.effort += unigram.key.effort * count;
+
         *self.row_usage.entry(unigram.key.position.r).or_default() += count;
         *self.column_usage.entry(unigram.key.position.c).or_default() += count;
         *self.finger_usage.entry(unigram.key.finger).or_default() += count;
@@ -50,6 +53,7 @@ impl ReportUnigramMetrics {
 
 #[derive(Debug, PartialEq)]
 pub struct Report {
+    effort: f64,
     left_hand_usage: f64,
     right_hand_usage: f64,
     finger_usage: HashMap<Finger, f64>,
@@ -82,6 +86,7 @@ impl From<ReportMetrics> for Report {
         let total_column_usage: f64 = metrics.unigram_metrics.column_usage.values().sum();
 
         Self {
+            effort: 100.0 * metrics.unigram_metrics.effort / metrics.total_chars,
             left_hand_usage: 100.0 * left_hand_usage / total_hand_usage,
             right_hand_usage: 100.0 * right_hand_usage / total_hand_usage,
             finger_usage: metrics
@@ -109,6 +114,7 @@ impl From<ReportMetrics> for Report {
 
 impl Display for Report {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Effort: {}%", self.effort)?;
         writeln!(f, "Left hand usage: {}%", self.left_hand_usage)?;
         writeln!(f, "Right hand usage: {}%", self.right_hand_usage)?;
         writeln!(f, "Pinky off home: {}%", self.pinky_off_home)?;
@@ -193,6 +199,18 @@ mod report_metrics_tests {
 
             check!(metrics.pinky_off_home == 111.0);
         }
+
+        #[rstest]
+        fn it_collects_key_effort(qwerty: Layout) {
+            let mut metrics = ReportUnigramMetrics::default();
+
+            metrics.collect(Unigram::new(qwerty.key_for('a').unwrap()), 1.0);
+            metrics.collect(Unigram::new(qwerty.key_for('q').unwrap()), 2.0);
+            metrics.collect(Unigram::new(qwerty.key_for('z').unwrap()), 1.0);
+            metrics.collect(Unigram::new(qwerty.key_for('"').unwrap()), 1.0);
+
+            check!(metrics.effort == 9.0);
+        }
     }
 }
 
@@ -207,6 +225,7 @@ mod report_tests {
         let metrics = ReportMetrics {
             total_chars: 200.0,
             unigram_metrics: ReportUnigramMetrics {
+                effort: 400.0,
                 finger_usage: [
                     (1.into(), 20.0),
                     (2.into(), 40.0),
@@ -225,6 +244,7 @@ mod report_tests {
         check!(
             report
                 == Report {
+                    effort: 200.0,
                     left_hand_usage: 60.0,
                     right_hand_usage: 40.0,
                     finger_usage: [
