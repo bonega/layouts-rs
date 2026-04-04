@@ -3,7 +3,7 @@ use std::fmt::{Display, Formatter};
 
 use crate::{
     analyzer::{Metric, Metrics},
-    layout::{Finger, Hand},
+    layout::{Finger, FingerKind, Hand},
     ngrams::Unigram,
 };
 
@@ -33,6 +33,7 @@ struct ReportUnigramMetrics {
     column_usage: HashMap<usize, f64>,
     row_usage: HashMap<usize, f64>,
     finger_usage: HashMap<Finger, f64>,
+    pinky_off_home: f64,
 }
 
 impl ReportUnigramMetrics {
@@ -40,6 +41,10 @@ impl ReportUnigramMetrics {
         *self.row_usage.entry(unigram.key.position.r).or_default() += count;
         *self.column_usage.entry(unigram.key.position.c).or_default() += count;
         *self.finger_usage.entry(unigram.key.finger).or_default() += count;
+
+        if unigram.key.finger.kind == FingerKind::Pinky && !unigram.key.finger_home {
+            self.pinky_off_home += count;
+        }
     }
 }
 
@@ -50,6 +55,7 @@ pub struct Report {
     finger_usage: HashMap<Finger, f64>,
     row_usage: HashMap<usize, f64>,
     column_usage: HashMap<usize, f64>,
+    pinky_off_home: f64,
 }
 
 impl From<ReportMetrics> for Report {
@@ -96,6 +102,7 @@ impl From<ReportMetrics> for Report {
                 .iter()
                 .map(|(column, usage)| (*column, 100.0 * usage / total_column_usage))
                 .collect(),
+            pinky_off_home: 100.0 * metrics.unigram_metrics.pinky_off_home / metrics.total_chars,
         }
     }
 }
@@ -104,6 +111,7 @@ impl Display for Report {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "Left hand usage: {}%", self.left_hand_usage)?;
         writeln!(f, "Right hand usage: {}%", self.right_hand_usage)?;
+        writeln!(f, "Pinky off home: {}%", self.pinky_off_home)?;
         writeln!(f, "Finger usage:")?;
         for (finger, usage) in &self.finger_usage {
             writeln!(f, "  {:?}: {}%", u8::from(*finger), usage)?;
@@ -173,6 +181,18 @@ mod report_metrics_tests {
             check!(metrics.finger_usage.get(&Finger::from(2)).unwrap() == &10.0);
             check!(metrics.finger_usage.get(&Finger::from(3)).unwrap() == &100.0);
         }
+
+        #[rstest]
+        fn it_collects_pinky_off_home(qwerty: Layout) {
+            let mut metrics = ReportUnigramMetrics::default();
+
+            metrics.collect(Unigram::new(qwerty.key_for('a').unwrap()), 1000.0);
+            metrics.collect(Unigram::new(qwerty.key_for('q').unwrap()), 1.0);
+            metrics.collect(Unigram::new(qwerty.key_for('z').unwrap()), 10.0);
+            metrics.collect(Unigram::new(qwerty.key_for('"').unwrap()), 100.0);
+
+            check!(metrics.pinky_off_home == 111.0);
+        }
     }
 }
 
@@ -185,7 +205,7 @@ mod report_tests {
     #[test]
     fn it_can_be_built_from_metrics() {
         let metrics = ReportMetrics {
-            total_chars: 100.0,
+            total_chars: 200.0,
             unigram_metrics: ReportUnigramMetrics {
                 finger_usage: [
                     (1.into(), 20.0),
@@ -196,6 +216,7 @@ mod report_tests {
                 .into(),
                 column_usage: [(1, 20.0), (2, 40.0), (3, 60.0), (4, 80.0)].into(),
                 row_usage: [(0, 20.0), (1, 40.0), (2, 60.0), (3, 80.0)].into(),
+                pinky_off_home: 10.0,
             },
         };
 
@@ -215,6 +236,7 @@ mod report_tests {
                     .into(),
                     column_usage: [(1, 10.0), (2, 20.0), (3, 30.0), (4, 40.0)].into(),
                     row_usage: [(0, 10.0), (1, 20.0), (2, 30.0), (3, 40.0)].into(),
+                    pinky_off_home: 5.0,
                 }
         );
     }

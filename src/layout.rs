@@ -17,7 +17,7 @@ pub struct Key {
     ch: char,
     pub finger: Finger,
     pub position: Pos,
-    finger_home: bool,
+    pub finger_home: bool,
 }
 
 impl Key {
