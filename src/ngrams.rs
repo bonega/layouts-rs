@@ -2,7 +2,7 @@ use crate::layout::{FingerKind, Key};
 
 #[derive(PartialEq, Debug)]
 pub struct Trigram {
-    kind: TrigramKind,
+    pub kind: TrigramKind,
     key1: Key,
     key2: Key,
     key3: Key,
