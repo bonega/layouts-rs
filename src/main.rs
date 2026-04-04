@@ -3,13 +3,14 @@ use layouts_rs::{
     corpus::Corpus,
     layout::{Layout, Pos},
     report::{Report, ReportMetrics},
+    swaps::SwapMove,
 };
 
 fn main() {
     let corpus = Corpus::new([("hello".to_string(), 10.0)]);
-    let layout = Layout::<3, 12>::new(
+    let mut layout = Layout::<3, 12>::new(
         r#"
-            _ q w e r t   y u i o p _
+            _ e w q r t   y u i o p _
             " a s d f g   h j k l ; '
             _ z x c v b   n m , . / _
             "#,
@@ -35,6 +36,9 @@ fn main() {
         ],
     )
     .unwrap();
+
+    let swaps = SwapMove::single_moves(&[Pos::new(0, 1), Pos::new(0, 3)]);
+    swaps.iter().for_each(|swap| swap.apply(&mut layout));
 
     let mut report_metrics = ReportMetrics::default();
 

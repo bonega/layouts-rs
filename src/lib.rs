@@ -42,3 +42,4 @@ pub mod corpus;
 pub mod layout;
 pub mod ngrams;
 pub mod report;
+pub mod swaps;
