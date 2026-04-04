@@ -248,6 +248,12 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
     fn default_keys() -> [[Option<Key>; COLUMNS]; ROWS] {
         [[None; COLUMNS]; ROWS]
     }
+
+    pub fn keys(&self) -> impl Iterator<Item = &Key> {
+        self.keys
+            .iter()
+            .flat_map(|row| row.iter().filter_map(|key| key.as_ref()))
+    }
 }
 
 impl<const ROWS: usize, const COLUMNS: usize> Default for Layout<ROWS, COLUMNS> {
@@ -561,6 +567,27 @@ mod tests {
             layout.swap_chars(Pos::new(0, 0), Pos::new(1, 0));
             check!(layout.char_at(Pos::new(0, 0)) == Some('c'));
             check!(layout.char_at(Pos::new(1, 0)) == Some('a'));
+        }
+
+        #[test]
+        fn it_returns_keys() {
+            let layout = Layout::<2, 2>::new(
+                "abcd",
+                vec![vec![1, 2], vec![1, 2]],
+                vec![vec![1.0, 1.0], vec![1.0, 1.0]],
+                vec![pos!(0, 0), pos!(0, 1)],
+            )
+            .unwrap();
+
+            check!(
+                layout.keys().collect::<Vec<_>>()
+                    == vec![
+                        &finger_home_key!('a', 1, pos!(0, 0)),
+                        &finger_home_key!('b', 2, pos!(0, 1)),
+                        &key!('c', 1, pos!(1, 0)),
+                        &key!('d', 2, pos!(1, 1))
+                    ]
+            );
         }
     }
 }
