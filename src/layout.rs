@@ -147,7 +147,7 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
                 ch,
                 Finger::from(finger_assignment[row][column]),
                 Pos::new(row, column),
-                finger_effort[row][column] as f64,
+                finger_effort[row][column],
                 finger_home_positions
                     .iter()
                     .any(|pos| pos.r == row && pos.c == column),
@@ -168,7 +168,7 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
         Ok(())
     }
 
-    fn check_matrix<T>(matrix_name: &str, matrix: &Vec<Vec<T>>) -> anyhow::Result<()> {
+    fn check_matrix<T>(matrix_name: &str, matrix: &[Vec<T>]) -> anyhow::Result<()> {
         if matrix.len() != ROWS || matrix.iter().any(|row| row.len() != COLUMNS) {
             anyhow::bail!(
                 "expected {matrix_name} to have {ROWS} rows and {COLUMNS} columns, received {} rows and {} columns",
@@ -192,14 +192,13 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
             }
 
             let finger_value = finger_assignment[pos.r][pos.c];
-            fingers_with_home.insert(finger_value.into());
+            fingers_with_home.insert(finger_value);
         }
 
         for row in finger_assignment {
             for &finger_value in row {
-                let finger = finger_value.into();
-                if !fingers_with_home.contains(&finger) {
-                    anyhow::bail!("finger {finger:?} does not have an home position");
+                if !fingers_with_home.contains(&finger_value) {
+                    anyhow::bail!("finger {finger_value:?} does not have an home position");
                 }
             }
         }

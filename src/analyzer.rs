@@ -25,7 +25,7 @@ impl Analyzer {
                 continue;
             };
 
-            metrics.collect_metric(Metric::Unigram(Unigram::new(&key), *count));
+            metrics.collect_metric(Metric::Unigram(Unigram::new(key), *count));
         }
 
         for ((char1, char2), count) in self.corpus.bigrams.iter() {
@@ -33,7 +33,7 @@ impl Analyzer {
                 continue;
             };
 
-            metrics.collect_metric(Metric::Bigram(Bigram::new(&key1, &key2), *count));
+            metrics.collect_metric(Metric::Bigram(Bigram::new(key1, key2), *count));
         }
 
         for ((char1, char2, char3), count) in self.corpus.trigrams.iter() {
@@ -46,7 +46,7 @@ impl Analyzer {
                 continue;
             };
 
-            metrics.collect_metric(Metric::Trigram(Trigram::new(&key1, &key2, &key3), *count));
+            metrics.collect_metric(Metric::Trigram(Trigram::new(key1, key2, key3), *count));
         }
     }
 }
@@ -116,17 +116,17 @@ mod tests {
             .return_const(());
         metrics
             .expect_collect_metric()
-            .with(eq(Metric::Unigram(Unigram::new(&key), 1.0)))
+            .with(eq(Metric::Unigram(Unigram::new(key), 1.0)))
             .once()
             .return_const(());
         metrics
             .expect_collect_metric()
-            .with(eq(Metric::Bigram(Bigram::new(&key, &key), 2.0)))
+            .with(eq(Metric::Bigram(Bigram::new(key, key), 2.0)))
             .once()
             .return_const(());
         metrics
             .expect_collect_metric()
-            .with(eq(Metric::Trigram(Trigram::new(&key, &key, &key), 3.0)))
+            .with(eq(Metric::Trigram(Trigram::new(key, key, key), 3.0)))
             .once()
             .return_const(());
 

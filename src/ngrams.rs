@@ -23,9 +23,9 @@ impl Trigram {
     pub fn new(key1: &Key, key2: &Key, key3: &Key) -> Self {
         Self {
             kind: Self::find_kind(key1, key2, key3),
-            key1: key1.clone(),
-            key2: key2.clone(),
-            key3: key3.clone(),
+            key1: *key1,
+            key2: *key2,
+            key3: *key3,
         }
     }
 
@@ -89,12 +89,12 @@ impl Trigram {
 
         if key1.finger.hand == key3.finger.hand
             && key2.finger.hand != key1.finger.hand
-            && !key1.same_finger(&key3)
+            && !key1.same_finger(key3)
         {
             return TrigramKind::Alternation;
         }
 
-        return TrigramKind::Other;
+        TrigramKind::Other
     }
 }
 
@@ -117,8 +117,8 @@ impl Bigram {
     pub fn new(key1: &Key, key2: &Key) -> Self {
         Self {
             kind: Self::find_kind(key1, key2),
-            key1: key1.clone(),
-            key2: key2.clone(),
+            key1: *key1,
+            key2: *key2,
         }
     }
 
@@ -127,12 +127,10 @@ impl Bigram {
         let col_distance = key1.column_distance(key2);
         let finger_distance = key1.finger.distance(&key2.finger);
 
-        if key1.same_finger(key2) {
-            if row_distance > 0 || col_distance > 0 {
-                return BigramKind::SameFingerSkip {
-                    skips: row_distance as u8 + col_distance as u8,
-                };
-            }
+        if key1.same_finger(key2) && (row_distance > 0 || col_distance > 0) {
+            return BigramKind::SameFingerSkip {
+                skips: row_distance as u8 + col_distance as u8,
+            };
         }
 
         if let Some(finger_distance) = finger_distance
@@ -166,7 +164,7 @@ impl Bigram {
             };
         }
 
-        return BigramKind::Other;
+        BigramKind::Other
     }
 }
 
@@ -177,7 +175,7 @@ pub struct Unigram {
 
 impl Unigram {
     pub fn new(key: &Key) -> Self {
-        Self { key: key.clone() }
+        Self { key: *key }
     }
 }
 
@@ -191,8 +189,8 @@ mod bigram_tests {
 
     #[rstest]
     fn it_returns_the_bigram_with_keys(qwerty: Layout) {
-        let key1 = qwerty.key_for('a').unwrap().clone();
-        let key2 = qwerty.key_for('s').unwrap().clone();
+        let key1 = *qwerty.key_for('a').unwrap();
+        let key2 = *qwerty.key_for('s').unwrap();
 
         check!(
             Bigram::new(&key1, &key2)
@@ -222,8 +220,8 @@ mod bigram_tests {
         let key1 = qwerty.key_for(ch1).unwrap();
         let key2 = qwerty.key_for(ch2).unwrap();
 
-        check!(Bigram::new(&key1, &key2).kind == expected_kind);
-        check!(Bigram::new(&key2, &key1).kind == expected_kind);
+        check!(Bigram::new(key1, key2).kind == expected_kind);
+        check!(Bigram::new(key2, key1).kind == expected_kind);
     }
 
     #[rstest]
@@ -242,8 +240,8 @@ mod bigram_tests {
         let key1 = qwerty.key_for(ch1).unwrap();
         let key2 = qwerty.key_for(ch2).unwrap();
 
-        check!(Bigram::new(&key1, &key2).kind == expected_kind);
-        check!(Bigram::new(&key2, &key1).kind == expected_kind);
+        check!(Bigram::new(key1, key2).kind == expected_kind);
+        check!(Bigram::new(key2, key1).kind == expected_kind);
     }
 
     #[rstest]
@@ -265,8 +263,8 @@ mod bigram_tests {
         let key1 = qwerty.key_for(ch1).unwrap();
         let key2 = qwerty.key_for(ch2).unwrap();
 
-        check!(Bigram::new(&key1, &key2).kind == expected_kind);
-        check!(Bigram::new(&key2, &key1).kind == expected_kind);
+        check!(Bigram::new(key1, key2).kind == expected_kind);
+        check!(Bigram::new(key2, key1).kind == expected_kind);
     }
 
     #[rstest]
@@ -277,8 +275,8 @@ mod bigram_tests {
         let key1 = qwerty.key_for(ch1).unwrap();
         let key2 = qwerty.key_for(ch2).unwrap();
 
-        check!(Bigram::new(&key1, &key2).kind == BigramKind::Other);
-        check!(Bigram::new(&key2, &key1).kind == BigramKind::Other);
+        check!(Bigram::new(key1, key2).kind == BigramKind::Other);
+        check!(Bigram::new(key2, key1).kind == BigramKind::Other);
     }
 }
 
@@ -313,7 +311,7 @@ mod trigram_tests {
         let key2 = qwerty.key_for(ch2).unwrap();
         let key3 = qwerty.key_for(ch3).unwrap();
 
-        check!(Trigram::new(&key1, &key2, &key3).kind == expected_kind);
+        check!(Trigram::new(key1, key2, key3).kind == expected_kind);
     }
 
     #[rstest]
@@ -345,7 +343,7 @@ mod trigram_tests {
         let key2 = qwerty.key_for(ch2).unwrap();
         let key3 = qwerty.key_for(ch3).unwrap();
 
-        check!(Trigram::new(&key1, &key2, &key3).kind == expected_kind);
+        check!(Trigram::new(key1, key2, key3).kind == expected_kind);
     }
 
     #[rstest]
@@ -362,7 +360,7 @@ mod trigram_tests {
         let key2 = qwerty.key_for(ch2).unwrap();
         let key3 = qwerty.key_for(ch3).unwrap();
 
-        check!(Trigram::new(&key1, &key2, &key3).kind == expected_kind);
+        check!(Trigram::new(key1, key2, key3).kind == expected_kind);
     }
 
     #[rstest]
@@ -379,7 +377,7 @@ mod trigram_tests {
         let key2 = qwerty.key_for(ch2).unwrap();
         let key3 = qwerty.key_for(ch3).unwrap();
 
-        check!(Trigram::new(&key1, &key2, &key3).kind == expected_kind);
+        check!(Trigram::new(key1, key2, key3).kind == expected_kind);
     }
 
     #[rstest]
@@ -396,6 +394,6 @@ mod trigram_tests {
         let key2 = qwerty.key_for(ch2).unwrap();
         let key3 = qwerty.key_for(ch3).unwrap();
 
-        check!(Trigram::new(&key1, &key2, &key3).kind == TrigramKind::Other);
+        check!(Trigram::new(key1, key2, key3).kind == TrigramKind::Other);
     }
 }
