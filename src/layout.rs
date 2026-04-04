@@ -206,11 +206,11 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
         Ok(())
     }
 
-    pub fn char_at(&self, position: Pos) -> Option<char> {
+    pub fn char_at(&self, position: &Pos) -> Option<char> {
         self.key_at(position).map(|key| key.ch)
     }
 
-    pub fn key_at(&self, position: Pos) -> Option<&Key> {
+    pub fn key_at(&self, position: &Pos) -> Option<&Key> {
         if position.r >= ROWS || position.c >= COLUMNS {
             return None;
         }
@@ -223,7 +223,7 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
             .find_map(|(row, col)| self.keys[row][col].as_ref().filter(|key| key.ch == ch))
     }
 
-    pub fn set_char(&mut self, position: Pos, ch: char) {
+    pub fn set_char(&mut self, position: &Pos, ch: char) {
         if position.r >= ROWS || position.c >= COLUMNS {
             return;
         }
@@ -233,7 +233,7 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
         }
     }
 
-    pub fn swap_chars(&mut self, pos1: Pos, pos2: Pos) {
+    pub fn swap_chars(&mut self, pos1: &Pos, pos2: &Pos) {
         let Some(ch1) = self.char_at(pos1) else {
             return;
         };
@@ -490,19 +490,19 @@ mod tests {
             .unwrap();
 
             check!(
-                layout.key_at(Pos::new(0, 0)) == Some(&finger_home_key!('a', 1, pos!(0, 0), 1.0))
+                layout.key_at(&Pos::new(0, 0)) == Some(&finger_home_key!('a', 1, pos!(0, 0), 1.0))
             );
             check!(
-                layout.key_at(Pos::new(0, 1)) == Some(&finger_home_key!('b', 2, pos!(0, 1), 1.0))
+                layout.key_at(&Pos::new(0, 1)) == Some(&finger_home_key!('b', 2, pos!(0, 1), 1.0))
             );
             check!(
-                layout.key_at(Pos::new(0, 2)) == Some(&finger_home_key!('c', 3, pos!(0, 2), 1.0))
+                layout.key_at(&Pos::new(0, 2)) == Some(&finger_home_key!('c', 3, pos!(0, 2), 1.0))
             );
-            check!(layout.key_at(Pos::new(1, 0)) == Some(&key!('d', 1, pos!(1, 0), 2.0)));
-            check!(layout.key_at(Pos::new(1, 1)) == Some(&key!('e', 2, pos!(1, 1), 2.0)));
-            check!(layout.key_at(Pos::new(1, 2)) == Some(&key!('f', 3, pos!(1, 2), 2.0)));
-            check!(layout.key_at(Pos::new(2, 0)) == None);
-            check!(layout.key_at(Pos::new(0, 3)) == None);
+            check!(layout.key_at(&Pos::new(1, 0)) == Some(&key!('d', 1, pos!(1, 0), 2.0)));
+            check!(layout.key_at(&Pos::new(1, 1)) == Some(&key!('e', 2, pos!(1, 1), 2.0)));
+            check!(layout.key_at(&Pos::new(1, 2)) == Some(&key!('f', 3, pos!(1, 2), 2.0)));
+            check!(layout.key_at(&Pos::new(2, 0)) == None);
+            check!(layout.key_at(&Pos::new(0, 3)) == None);
         }
 
         #[test]
@@ -532,12 +532,12 @@ mod tests {
             )
             .unwrap();
 
-            check!(layout.char_at(Pos::new(0, 0)) == Some('a'));
-            check!(layout.char_at(Pos::new(0, 1)) == Some('b'));
-            check!(layout.char_at(Pos::new(1, 0)) == Some('c'));
-            check!(layout.char_at(Pos::new(1, 1)) == Some('d'));
-            check!(layout.char_at(Pos::new(2, 0)) == None);
-            check!(layout.char_at(Pos::new(0, 2)) == None);
+            check!(layout.char_at(&Pos::new(0, 0)) == Some('a'));
+            check!(layout.char_at(&Pos::new(0, 1)) == Some('b'));
+            check!(layout.char_at(&Pos::new(1, 0)) == Some('c'));
+            check!(layout.char_at(&Pos::new(1, 1)) == Some('d'));
+            check!(layout.char_at(&Pos::new(2, 0)) == None);
+            check!(layout.char_at(&Pos::new(0, 2)) == None);
         }
 
         #[test]
@@ -550,8 +550,8 @@ mod tests {
             )
             .unwrap();
 
-            layout.set_char(Pos::new(0, 0), 'x');
-            check!(layout.char_at(Pos::new(0, 0)) == Some('x'));
+            layout.set_char(&Pos::new(0, 0), 'x');
+            check!(layout.char_at(&Pos::new(0, 0)) == Some('x'));
         }
 
         #[test]
@@ -564,9 +564,9 @@ mod tests {
             )
             .unwrap();
 
-            layout.swap_chars(Pos::new(0, 0), Pos::new(1, 0));
-            check!(layout.char_at(Pos::new(0, 0)) == Some('c'));
-            check!(layout.char_at(Pos::new(1, 0)) == Some('a'));
+            layout.swap_chars(&Pos::new(0, 0), &Pos::new(1, 0));
+            check!(layout.char_at(&Pos::new(0, 0)) == Some('c'));
+            check!(layout.char_at(&Pos::new(1, 0)) == Some('a'));
         }
 
         #[test]
