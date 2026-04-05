@@ -221,6 +221,6 @@ mod tests {
             .best_swap(&mut layout, &swap_moves, score)
             .unwrap();
 
-        check!(swap_move == &SwapMove::Single(pos!(0, 0), pos!(1, 0)));
+        check!(swap_move == &SwapMove(vec![(pos!(0, 0), pos!(1, 0))]));
     }
 }

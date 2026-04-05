@@ -1,17 +1,14 @@
 use crate::layout::{Layout, Pos};
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum SwapMove {
-    Single(Pos, Pos),
-    Group(Vec<(Pos, Pos)>),
-}
+pub struct SwapMove(pub Vec<(Pos, Pos)>);
 
 impl SwapMove {
     pub fn single_moves(positions: &[Pos]) -> Vec<Self> {
         let mut moves = Vec::new();
         for (i, &p1) in positions.iter().enumerate() {
             for &p2 in positions.iter().skip(i + 1) {
-                moves.push(Self::Single(p1, p2));
+                moves.push(Self(vec![(p1, p2)]));
             }
         }
         moves
@@ -42,7 +39,7 @@ impl SwapMove {
                 let g2 = &groups[&k2];
                 let pairs: Vec<(Pos, Pos)> = g1.iter().copied().zip(g2.iter().copied()).collect();
                 if !pairs.is_empty() {
-                    moves.push(Self::Group(pairs));
+                    moves.push(Self(pairs));
                 }
             }
         }
@@ -51,15 +48,8 @@ impl SwapMove {
     }
 
     pub fn apply<const C: usize, const R: usize>(&self, layout: &mut Layout<C, R>) {
-        match self {
-            SwapMove::Single(p1, p2) => {
-                layout.swap_chars(p1, p2);
-            }
-            SwapMove::Group(pairs) => {
-                for &(p1, p2) in pairs {
-                    layout.swap_chars(&p1, &p2);
-                }
-            }
+        for &(p1, p2) in &self.0 {
+            layout.swap_chars(&p1, &p2);
         }
     }
 }
@@ -77,9 +67,9 @@ mod single_moves_tests {
         check!(
             swap_moves
                 == vec![
-                    SwapMove::Single(pos!(0, 0), pos!(1, 0)),
-                    SwapMove::Single(pos!(0, 0), pos!(0, 1)),
-                    SwapMove::Single(pos!(1, 0), pos!(0, 1)),
+                    SwapMove(vec![(pos!(0, 0), pos!(1, 0))]),
+                    SwapMove(vec![(pos!(0, 0), pos!(0, 1))]),
+                    SwapMove(vec![(pos!(1, 0), pos!(0, 1))]),
                 ]
         );
     }
@@ -106,7 +96,7 @@ mod single_moves_tests {
         )
         .unwrap();
 
-        let swap = SwapMove::Single(pos!(0, 0), pos!(1, 0));
+        let swap = SwapMove(vec![(pos!(0, 0), pos!(1, 0))]);
         swap.apply(&mut layout);
 
         check!(layout.key_for('a').unwrap().position == pos!(1, 0));
@@ -124,7 +114,7 @@ mod single_moves_tests {
         .unwrap();
 
         let mut layout = original;
-        let swap = SwapMove::Single(pos!(0, 0), pos!(1, 0));
+        let swap = SwapMove(vec![(pos!(0, 0), pos!(1, 0))]);
         swap.apply(&mut layout);
         swap.apply(&mut layout);
 
@@ -145,7 +135,7 @@ mod column_moves_tests {
         let col_moves = SwapMove::column_moves(&positions);
         check!(
             col_moves
-                == vec![SwapMove::Group(vec![
+                == vec![SwapMove(vec![
                     (pos!(0, 0), pos!(0, 1)),
                     (pos!(1, 0), pos!(1, 1)),
                 ])]
@@ -166,9 +156,9 @@ mod column_moves_tests {
         check!(
             col_moves
                 == vec![
-                    SwapMove::Group(vec![(pos!(0, 0), pos!(0, 1)), (pos!(1, 0), pos!(1, 1))]),
-                    SwapMove::Group(vec![(pos!(0, 0), pos!(0, 2)), (pos!(1, 0), pos!(1, 2))]),
-                    SwapMove::Group(vec![(pos!(0, 1), pos!(0, 2)), (pos!(1, 1), pos!(1, 2))]),
+                    SwapMove(vec![(pos!(0, 0), pos!(0, 1)), (pos!(1, 0), pos!(1, 1))]),
+                    SwapMove(vec![(pos!(0, 0), pos!(0, 2)), (pos!(1, 0), pos!(1, 2))]),
+                    SwapMove(vec![(pos!(0, 1), pos!(0, 2)), (pos!(1, 1), pos!(1, 2))]),
                 ]
         );
     }
@@ -186,7 +176,7 @@ mod column_moves_tests {
         let col_moves = SwapMove::column_moves(&positions);
         check!(
             col_moves
-                == vec![SwapMove::Group(vec![
+                == vec![SwapMove(vec![
                     (pos!(0, 0), pos!(0, 1)),
                     (pos!(1, 0), pos!(1, 1)),
                     (pos!(2, 0), pos!(2, 1)),
@@ -200,7 +190,7 @@ mod column_moves_tests {
         let col_moves = SwapMove::column_moves(&positions);
         check!(
             col_moves
-                == vec![SwapMove::Group(vec![
+                == vec![SwapMove(vec![
                     (pos!(0, 0), pos!(0, 1)),
                     (pos!(1, 0), pos!(1, 1)),
                 ])]
@@ -230,7 +220,7 @@ mod column_moves_tests {
         )
         .unwrap();
 
-        let swap = SwapMove::Group(vec![(pos!(0, 0), pos!(0, 1)), (pos!(1, 0), pos!(1, 1))]);
+        let swap = SwapMove(vec![(pos!(0, 0), pos!(0, 1)), (pos!(1, 0), pos!(1, 1))]);
         swap.apply(&mut layout);
 
         check!(layout.key_for('a').unwrap().position == pos!(0, 1));
@@ -250,7 +240,7 @@ mod column_moves_tests {
         .unwrap();
 
         let mut layout = original;
-        let swap = SwapMove::Group(vec![(pos!(0, 0), pos!(0, 1)), (pos!(1, 0), pos!(1, 1))]);
+        let swap = SwapMove(vec![(pos!(0, 0), pos!(0, 1)), (pos!(1, 0), pos!(1, 1))]);
         swap.apply(&mut layout);
         swap.apply(&mut layout);
 
@@ -273,7 +263,7 @@ mod row_moves_tests {
         let row_moves = SwapMove::row_moves(&positions);
         check!(
             row_moves
-                == vec![SwapMove::Group(vec![
+                == vec![SwapMove(vec![
                     (pos!(0, 0), pos!(1, 0)),
                     (pos!(0, 1), pos!(1, 1)),
                 ])]
@@ -294,9 +284,9 @@ mod row_moves_tests {
         check!(
             row_moves
                 == vec![
-                    SwapMove::Group(vec![(pos!(0, 0), pos!(1, 0)), (pos!(0, 1), pos!(1, 1))]),
-                    SwapMove::Group(vec![(pos!(0, 0), pos!(2, 0)), (pos!(0, 1), pos!(2, 1))]),
-                    SwapMove::Group(vec![(pos!(1, 0), pos!(2, 0)), (pos!(1, 1), pos!(2, 1))]),
+                    SwapMove(vec![(pos!(0, 0), pos!(1, 0)), (pos!(0, 1), pos!(1, 1))]),
+                    SwapMove(vec![(pos!(0, 0), pos!(2, 0)), (pos!(0, 1), pos!(2, 1))]),
+                    SwapMove(vec![(pos!(1, 0), pos!(2, 0)), (pos!(1, 1), pos!(2, 1))]),
                 ]
         );
     }
@@ -314,7 +304,7 @@ mod row_moves_tests {
         let row_moves = SwapMove::row_moves(&positions);
         check!(
             row_moves
-                == vec![SwapMove::Group(vec![
+                == vec![SwapMove(vec![
                     (pos!(0, 0), pos!(1, 0)),
                     (pos!(0, 1), pos!(1, 1)),
                     (pos!(0, 2), pos!(1, 2)),
@@ -328,7 +318,7 @@ mod row_moves_tests {
         let row_moves = SwapMove::row_moves(&positions);
         check!(
             row_moves
-                == vec![SwapMove::Group(vec![
+                == vec![SwapMove(vec![
                     (pos!(0, 0), pos!(1, 0)),
                     (pos!(0, 1), pos!(1, 1)),
                 ])]
@@ -358,7 +348,7 @@ mod row_moves_tests {
         )
         .unwrap();
 
-        let swap = SwapMove::Group(vec![(pos!(0, 0), pos!(1, 0)), (pos!(0, 1), pos!(1, 1))]);
+        let swap = SwapMove(vec![(pos!(0, 0), pos!(1, 0)), (pos!(0, 1), pos!(1, 1))]);
         swap.apply(&mut layout);
 
         check!(layout.key_for('a').unwrap().position == pos!(1, 0));
@@ -378,7 +368,7 @@ mod row_moves_tests {
         .unwrap();
 
         let mut layout = original;
-        let swap = SwapMove::Group(vec![(pos!(0, 0), pos!(1, 0)), (pos!(0, 1), pos!(1, 1))]);
+        let swap = SwapMove(vec![(pos!(0, 0), pos!(1, 0)), (pos!(0, 1), pos!(1, 1))]);
         swap.apply(&mut layout);
         swap.apply(&mut layout);
 
