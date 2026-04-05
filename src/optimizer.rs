@@ -76,7 +76,7 @@ impl Optimizer {
         };
 
         let positions: Vec<Pos> = layout.keys().map(|key| key.position).collect();
-        let swap_moves = SwapMove::single_moves(&positions);
+        let swap_moves = SwapMove::all_moves(&positions);
 
         let mut best_score = f64::INFINITY;
         let mut best_layout = *layout;

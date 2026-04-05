@@ -4,6 +4,13 @@ use crate::layout::{Layout, Pos};
 pub struct SwapMove(pub Vec<(Pos, Pos)>);
 
 impl SwapMove {
+    pub fn all_moves(positions: &[Pos]) -> Vec<Self> {
+        let mut moves = Self::single_moves(positions);
+        moves.extend(Self::column_moves(positions));
+        moves.extend(Self::row_moves(positions));
+        moves
+    }
+
     pub fn single_moves(positions: &[Pos]) -> Vec<Self> {
         let mut moves = Vec::new();
         for (i, &p1) in positions.iter().enumerate() {
