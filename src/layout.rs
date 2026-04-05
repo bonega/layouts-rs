@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Pos {
@@ -261,6 +262,25 @@ impl<const ROWS: usize, const COLUMNS: usize> Default for Layout<ROWS, COLUMNS> 
         Self {
             keys: Self::default_keys(),
         }
+    }
+}
+
+impl<const ROWS: usize, const COLUMNS: usize> std::fmt::Display for Layout<ROWS, COLUMNS> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for row in self.keys.iter() {
+            let left = row[..6]
+                .iter()
+                .map(|k| k.map(|kk| kk.ch).unwrap_or('_').to_string())
+                .collect::<Vec<_>>()
+                .join(" ");
+            let right = row[6..]
+                .iter()
+                .map(|k| k.map(|kk| kk.ch).unwrap_or('_').to_string())
+                .collect::<Vec<_>>()
+                .join(" ");
+            writeln!(f, "  {}   {}", left, right)?;
+        }
+        Ok(())
     }
 }
 

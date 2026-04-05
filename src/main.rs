@@ -46,6 +46,8 @@ fn main() {
     analyzer.analyze(&layout, &mut report_metrics);
     let report = Report::from(report_metrics);
 
+    println!("Initial Layout:");
+    println!("{layout}");
     println!("{report}");
 
     let optimizer = Optimizer::new(analyzer, Weights { effort: 1.0 });
@@ -59,5 +61,6 @@ fn main() {
 
     println!("-----------------------");
     println!("Optimized Layout:");
+    println!("{optimized_layout}");
     println!("{report}");
 }
