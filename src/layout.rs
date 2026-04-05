@@ -1,6 +1,8 @@
 use std::collections::HashSet;
 use std::fmt;
 
+const NONE_CHAR: char = '_';
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Pos {
     pub r: usize,
@@ -144,15 +146,21 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
             let row = index / COLUMNS;
             let column = index % COLUMNS;
 
-            keys[row][column] = Some(Key::new(
-                ch,
-                Finger::from(finger_assignment[row][column]),
-                Pos::new(row, column),
-                finger_effort[row][column],
-                finger_home_positions
-                    .iter()
-                    .any(|pos| pos.r == row && pos.c == column),
-            ));
+            let finger = Finger::from(finger_assignment[row][column]);
+            let pos = Pos::new(row, column);
+            let effort = finger_effort[row][column];
+            let homerow = finger_home_positions
+                .iter()
+                .any(|pos| pos.r == row && pos.c == column);
+
+            if ch == NONE_CHAR {
+                if homerow {
+                    anyhow::bail!("home position at ({row}, {column}) cannot be empty");
+                }
+                continue;
+            }
+
+            keys[row][column] = Some(Key::new(ch, finger, pos, effort, homerow));
         }
 
         Ok(Self { keys })
@@ -474,6 +482,25 @@ mod tests {
                 )
                 .is_err()
             );
+        }
+
+        #[test]
+        fn it_builds_with_underscores_as_none() {
+            let layout = Layout::<2, 3>::new(
+                "_ab_cd",
+                vec![vec![1, 1, 2], vec![1, 1, 2]],
+                vec![vec![1.0, 1.0, 1.0], vec![1.0, 1.0, 1.0]],
+                vec![pos!(0, 1), pos!(0, 2)],
+            )
+            .unwrap();
+
+            check!(layout.key_at(&Pos::new(0, 0)) == None);
+            check!(layout.char_at(&Pos::new(0, 1)) == Some('a'));
+            check!(layout.char_at(&Pos::new(0, 2)) == Some('b'));
+            check!(layout.key_at(&Pos::new(1, 0)) == None);
+            check!(layout.char_at(&Pos::new(1, 1)) == Some('c'));
+            check!(layout.char_at(&Pos::new(1, 2)) == Some('d'));
+            check!(layout.keys().count() == 4);
         }
 
         #[test]
