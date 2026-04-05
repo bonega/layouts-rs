@@ -17,7 +17,7 @@ impl Pos {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Key {
-    ch: char,
+    pub ch: char,
     pub finger: Finger,
     pub position: Pos,
     pub finger_home: bool,

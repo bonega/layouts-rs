@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::collections::HashSet;
 use std::fmt::Display;
 
 use rand::{Rng, prelude::*, rng, rngs::StdRng};
@@ -68,6 +69,7 @@ impl Optimizer {
         layout: &Layout<C, R>,
         iterations: usize,
         seed: Option<u64>,
+        pinned_chars: &HashSet<char>,
     ) -> Layout<C, R> {
         let mut rng: StdRng = if let Some(seed) = seed {
             StdRng::seed_from_u64(seed)
@@ -75,7 +77,11 @@ impl Optimizer {
             StdRng::from_rng(&mut rng())
         };
 
-        let positions: Vec<Pos> = layout.keys().map(|key| key.position).collect();
+        let positions: Vec<Pos> = layout
+            .keys()
+            .filter(|key| !pinned_chars.contains(&key.ch))
+            .map(|key| key.position)
+            .collect();
         let swap_moves = SwapMove::all_moves(&positions);
 
         let mut best_score = f64::INFINITY;
@@ -114,8 +120,7 @@ impl Optimizer {
     ) -> Option<(f64, &'a SwapMove)> {
         swap_moves
             .iter()
-            .enumerate()
-            .filter_map(|(_, swap_move)| {
+            .filter_map(|swap_move| {
                 swap_move.apply(candidate);
                 let s = self.get_score(candidate);
                 swap_move.apply(candidate);
@@ -171,14 +176,33 @@ mod tests {
         .unwrap();
 
         let corpus = Corpus::new([("c".to_string(), 10.0)]);
-
         let analyzer = Analyzer::new(corpus);
-
         let optimizer = Optimizer::new(analyzer, Weights { effort: 1.0 });
 
-        let optimized_layout = optimizer.optimize(&layout, 10, Some(42));
+        let optimized_layout = optimizer.optimize(&layout, 10, Some(42), &HashSet::new());
 
         check!(optimized_layout.key_for('c').unwrap().effort == 1.0);
+    }
+
+    #[test]
+    fn it_optimizes_with_pinned_chars() {
+        let layout = Layout::<2, 2>::new(
+            "abcd",
+            vec![vec![1, 2], vec![1, 2]],
+            vec![vec![1.0, 100.0], vec![100.0, 100.0]],
+            vec![pos!(0, 0), pos!(0, 1)],
+        )
+        .unwrap();
+
+        let corpus = Corpus::new([("c".to_string(), 10.0)]);
+        let analyzer = Analyzer::new(corpus);
+        let optimizer = Optimizer::new(analyzer, Weights { effort: 1.0 });
+
+        let pinned = HashSet::from(['a', 'c']);
+        let optimized_layout = optimizer.optimize(&layout, 10, Some(42), &pinned);
+
+        check!(optimized_layout.key_for('a').unwrap().position == pos!(0, 0));
+        check!(optimized_layout.key_for('c').unwrap().position == pos!(1, 0));
     }
 
     #[test]

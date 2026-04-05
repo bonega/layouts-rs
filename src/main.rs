@@ -51,7 +51,7 @@ fn main() {
     println!("{report}");
 
     let optimizer = Optimizer::new(analyzer, Weights { effort: 1.0 });
-    let optimized_layout = optimizer.optimize(&layout, 10, None);
+    let optimized_layout = optimizer.optimize(&layout, 10, None, &['h'].into_iter().collect());
 
     let corpus = Corpus::new([("hello".to_string(), 10.0)]);
     let analyzer = Analyzer::new(corpus);
