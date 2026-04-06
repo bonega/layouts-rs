@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::fmt::Display;
+use std::sync::Arc;
 
 use rand::{Rng, prelude::*, rng, rngs::StdRng};
 
@@ -59,6 +60,61 @@ pub struct Optimizer {
     weights: Weights,
 }
 
+#[derive(Clone)]
+struct OptimizableLayout<const C: usize, const R: usize> {
+    layout: Layout<C, R>,
+    swap_moves: Arc<Vec<SwapMove>>,
+}
+
+impl<const C: usize, const R: usize> OptimizableLayout<C, R> {
+    pub fn new(layout: Layout<C, R>, pinned_chars: &HashSet<char>) -> Self {
+        let positions: Vec<Pos> = layout
+            .keys()
+            .filter(|key| !pinned_chars.contains(&key.ch))
+            .map(|key| key.position)
+            .collect();
+        let swap_moves = Arc::new(SwapMove::all_moves(&positions));
+
+        Self { layout, swap_moves }
+    }
+
+    fn try_improve(&mut self, score_check: impl Fn(&Layout<C, R>) -> Option<f64>) -> Option<f64> {
+        let (score, best_swap) = self
+            .swap_moves
+            .clone()
+            .iter()
+            .filter_map(|swap_move| {
+                swap_move.apply(&mut self.layout);
+                let score = score_check(&self.layout);
+                swap_move.apply(&mut self.layout);
+
+                score.map(|score| (score, swap_move.clone()))
+            })
+            .min_by(|(s1, _), (s2, _)| s1.partial_cmp(s2).unwrap_or(Ordering::Equal))?;
+
+        best_swap.apply(&mut self.layout);
+
+        Some(score)
+    }
+
+    fn perturb<RNG: Rng + ?Sized>(&mut self, rng: &mut RNG) {
+        let n = self.swap_moves.len();
+
+        if n == 0 {
+            return;
+        }
+
+        for _ in 0..2 {
+            let swap = &self.swap_moves[rng.next_u64() as usize % n];
+            swap.apply(&mut self.layout);
+        }
+    }
+
+    fn layout(&self) -> &Layout<C, R> {
+        &self.layout
+    }
+}
+
 impl Optimizer {
     pub fn new(analyzer: Analyzer, weights: Weights) -> Self {
         Self { analyzer, weights }
@@ -77,73 +133,32 @@ impl Optimizer {
             StdRng::from_rng(&mut rng())
         };
 
-        let positions: Vec<Pos> = layout
-            .keys()
-            .filter(|key| !pinned_chars.contains(&key.ch))
-            .map(|key| key.position)
-            .collect();
-        let swap_moves = SwapMove::all_moves(&positions);
-
+        let mut best_layout = OptimizableLayout::new(*layout, pinned_chars);
         let mut best_score = f64::INFINITY;
-        let mut best_layout = *layout;
 
         for iteration in 0..iterations {
-            let mut candidate = best_layout;
+            let mut candidate = best_layout.clone();
 
             if iteration > 0 {
-                Self::perturb(&mut rng, &swap_moves, &mut candidate);
+                candidate.perturb(&mut rng);
             }
 
-            let mut score = self.get_score(&candidate);
+            let mut current_score = self.get_score(&candidate.layout);
 
-            while let Some((best_iteration_score, swap_move)) =
-                self.best_swap(&mut candidate, &swap_moves, score)
-            {
-                swap_move.apply(&mut candidate);
-                score = best_iteration_score;
+            while let Some(best_iteration_score) = candidate.try_improve(|layout| {
+                let score = self.get_score(layout);
+                (score < current_score).then_some(score)
+            }) {
+                current_score = best_iteration_score;
             }
 
-            if score < best_score {
-                best_score = score;
+            if current_score < best_score {
+                best_score = current_score;
                 best_layout = candidate;
             }
         }
 
-        best_layout
-    }
-
-    fn best_swap<'a, const C: usize, const R: usize>(
-        &self,
-        candidate: &mut Layout<C, R>,
-        swap_moves: &'a Vec<SwapMove>,
-        score: f64,
-    ) -> Option<(f64, &'a SwapMove)> {
-        swap_moves
-            .iter()
-            .filter_map(|swap_move| {
-                swap_move.apply(candidate);
-                let s = self.get_score(candidate);
-                swap_move.apply(candidate);
-                (s < score).then_some((s, swap_move))
-            })
-            .min_by(|(s1, _), (s2, _)| s1.partial_cmp(s2).unwrap_or(Ordering::Equal))
-    }
-
-    fn perturb<RNG: Rng + ?Sized, const C: usize, const R: usize>(
-        rng: &mut RNG,
-        swap_moves: &[SwapMove],
-        layout: &mut Layout<C, R>,
-    ) {
-        let n = swap_moves.len();
-
-        if n == 0 {
-            return;
-        }
-
-        for _ in 0..2 {
-            let swap = &swap_moves[rng.next_u64() as usize % n];
-            swap.apply(layout);
-        }
+        *best_layout.layout()
     }
 
     fn get_score<const C: usize, const R: usize>(&self, layout: &Layout<C, R>) -> f64 {
@@ -158,12 +173,10 @@ impl Optimizer {
 }
 
 #[cfg(test)]
-mod tests {
-    use assert2::check;
-
-    use crate::corpus::Corpus;
-
+mod optimizer_tests {
     use super::*;
+    use crate::corpus::Corpus;
+    use assert2::check;
 
     #[test]
     fn it_optimizes() {
@@ -183,9 +196,15 @@ mod tests {
 
         check!(optimized_layout.key_for('c').unwrap().effort == 1.0);
     }
+}
+
+#[cfg(test)]
+mod optimizable_layout_tests {
+    use super::*;
+    use assert2::check;
 
     #[test]
-    fn it_optimizes_with_pinned_chars() {
+    fn it_does_not_improve_layout_when_no_swap_gives_better_score() {
         let layout = Layout::<2, 2>::new(
             "abcd",
             vec![vec![1, 2], vec![1, 2]],
@@ -194,40 +213,18 @@ mod tests {
         )
         .unwrap();
 
-        let corpus = Corpus::new([("c".to_string(), 10.0)]);
-        let analyzer = Analyzer::new(corpus);
-        let optimizer = Optimizer::new(analyzer, Weights { effort: 1.0 });
-
-        let pinned = HashSet::from(['a', 'c']);
-        let optimized_layout = optimizer.optimize(&layout, 10, Some(42), &pinned);
-
-        check!(optimized_layout.key_for('a').unwrap().position == pos!(0, 0));
-        check!(optimized_layout.key_for('c').unwrap().position == pos!(1, 0));
-    }
-
-    #[test]
-    fn best_swap_returns_none_when_all_swaps_are_worse() {
-        let mut layout = Layout::<2, 2>::new(
-            "abcd",
-            vec![vec![1, 2], vec![1, 2]],
-            vec![vec![1.0, 100.0], vec![100.0, 100.0]],
-            vec![pos!(0, 0), pos!(0, 1)],
-        )
-        .unwrap();
-
-        let corpus = Corpus::new([("c".to_string(), 10.0)]);
-        let analyzer = Analyzer::new(corpus);
-        let optimizer = Optimizer::new(analyzer, Weights { effort: 1.0 });
-
-        let swap_moves = SwapMove::single_moves(&[pos!(0, 0), pos!(1, 0), pos!(0, 1), pos!(1, 1)]);
-        let result = optimizer.best_swap(&mut layout, &swap_moves, 0.0);
+        let mut optimizable = OptimizableLayout::new(layout, &[].into());
+        let result = optimizable.try_improve(|layout| {
+            let score = layout_effort_score(layout);
+            if score < 0.0 { Some(score) } else { None }
+        });
 
         check!(result == None);
     }
 
     #[test]
-    fn best_swap_picks_move_with_lowest_score() {
-        let mut layout = Layout::<2, 2>::new(
+    fn it_improves_layout_by_applying_the_best_swap() {
+        let layout = Layout::<2, 2>::new(
             "abcd",
             vec![vec![1, 2], vec![1, 2]],
             vec![vec![1.0, 50.0], vec![100.0, 50.0]],
@@ -235,16 +232,135 @@ mod tests {
         )
         .unwrap();
 
-        let corpus = Corpus::new([("c".to_string(), 10.0)]);
-        let analyzer = Analyzer::new(corpus);
-        let optimizer = Optimizer::new(analyzer, Weights { effort: 1.0 });
-
-        let swap_moves = SwapMove::single_moves(&[pos!(0, 0), pos!(1, 0), pos!(0, 1), pos!(1, 1)]);
-        let score = optimizer.get_score(&layout);
-        let (_, swap_move) = optimizer
-            .best_swap(&mut layout, &swap_moves, score)
+        let mut optimizable = OptimizableLayout::new(layout, &[].into());
+        let score = optimizable
+            .try_improve(|layout| {
+                let score = layout.key_for('c').unwrap().effort;
+                if score < 50.0 { Some(score) } else { None }
+            })
             .unwrap();
 
-        check!(swap_move == &SwapMove(vec![(pos!(0, 0), pos!(1, 0))]));
+        check!(score == 1.0);
+        check!(optimizable.layout().key_for('c').unwrap().effort == 1.0);
+    }
+
+    #[test]
+    fn it_improves_layout_without_moving_pinned_chars() {
+        let layout = Layout::<2, 2>::new(
+            "abcd",
+            vec![vec![1, 2], vec![1, 2]],
+            vec![vec![1.0, 100.0], vec![100.0, 100.0]],
+            vec![pos!(0, 0), pos!(0, 1)],
+        )
+        .unwrap();
+
+        let pinned = HashSet::from(['a', 'c']);
+        let initial_score = layout_effort_score(&layout);
+        let mut optimizable = OptimizableLayout::new(layout, &pinned);
+
+        while optimizable
+            .try_improve(|layout| {
+                let score = layout_effort_score(layout);
+                if score < initial_score {
+                    Some(score)
+                } else {
+                    None
+                }
+            })
+            .is_some()
+        {}
+
+        check!(optimizable.layout().key_for('a').unwrap().position == pos!(0, 0));
+        check!(optimizable.layout().key_for('c').unwrap().position == pos!(1, 0));
+    }
+
+    #[test]
+    fn it_does_not_improve_layout_when_only_one_char_is_unpinned() {
+        let layout = Layout::<2, 2>::new(
+            "abcd",
+            vec![vec![1, 2], vec![1, 2]],
+            vec![vec![1.0, 100.0], vec![100.0, 100.0]],
+            vec![pos!(0, 0), pos!(0, 1)],
+        )
+        .unwrap();
+
+        let pinned = HashSet::from(['a', 'b', 'c']);
+        let mut optimizable = OptimizableLayout::new(layout, &pinned);
+        let result = optimizable.try_improve(|layout| {
+            let score = layout.key_for('d').unwrap().effort;
+            if score < 100.0 { Some(score) } else { None }
+        });
+
+        check!(result == None);
+    }
+
+    #[test]
+    fn it_perturbs_layout() {
+        let layout = Layout::<2, 2>::new(
+            "abcd",
+            vec![vec![1, 2], vec![1, 2]],
+            vec![vec![1.0, 50.0], vec![100.0, 200.0]],
+            vec![pos!(0, 0), pos!(0, 1)],
+        )
+        .unwrap();
+
+        let mut optimizable = OptimizableLayout::new(layout, &[].into());
+        let before: Vec<char> = optimizable.layout().keys().map(|k| k.ch).collect();
+
+        let mut rng = StdRng::seed_from_u64(42);
+        optimizable.perturb(&mut rng);
+
+        let after: Vec<char> = optimizable.layout().keys().map(|k| k.ch).collect();
+        check!(before != after);
+    }
+
+    #[test]
+    fn it_does_not_perturb_layout_when_all_chars_are_pinned() {
+        let layout = Layout::<2, 2>::new(
+            "abcd",
+            vec![vec![1, 2], vec![1, 2]],
+            vec![vec![1.0, 50.0], vec![100.0, 200.0]],
+            vec![pos!(0, 0), pos!(0, 1)],
+        )
+        .unwrap();
+
+        let pinned = HashSet::from(['a', 'b', 'c', 'd']);
+        let mut optimizable = OptimizableLayout::new(layout, &pinned);
+        let before: Vec<char> = optimizable.layout().keys().map(|k| k.ch).collect();
+
+        let mut rng = StdRng::seed_from_u64(42);
+        optimizable.perturb(&mut rng);
+
+        let after: Vec<char> = optimizable.layout().keys().map(|k| k.ch).collect();
+        check!(before == after);
+    }
+
+    #[test]
+    fn it_does_not_improve_layout_after_convergence() {
+        let layout = Layout::<2, 2>::new(
+            "abcd",
+            vec![vec![1, 2], vec![1, 2]],
+            vec![vec![1.0, 50.0], vec![100.0, 50.0]],
+            vec![pos!(0, 0), pos!(0, 1)],
+        )
+        .unwrap();
+
+        let mut optimizable = OptimizableLayout::new(layout, &[].into());
+
+        let first = optimizable.try_improve(|layout| {
+            let score = layout.key_for('c').unwrap().effort;
+            if score < 50.0 { Some(score) } else { None }
+        });
+        check!(first == Some(1.0));
+
+        let second = optimizable.try_improve(|layout| {
+            let score = layout.key_for('c').unwrap().effort;
+            if score < 1.0 { Some(score) } else { None }
+        });
+        check!(second == None);
+    }
+
+    fn layout_effort_score<const C: usize, const R: usize>(layout: &Layout<C, R>) -> f64 {
+        layout.keys().map(|k| k.effort).sum()
     }
 }
