@@ -38,6 +38,7 @@ macro_rules! finger_home_key {
 }
 
 pub mod analyzer;
+pub mod config;
 pub mod corpus;
 pub mod layout;
 pub mod ngrams;

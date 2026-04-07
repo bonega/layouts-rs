@@ -4,7 +4,7 @@ pub type TrigramChars = (char, char, char);
 pub type BigramChars = (char, char);
 pub type UnigramChar = char;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Corpus {
     pub chars_length: f64,
     pub word_items: Vec<(String, f64)>,

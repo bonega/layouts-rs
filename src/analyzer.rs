@@ -4,6 +4,7 @@ use crate::{
     ngrams::{Bigram, Trigram, Unigram},
 };
 
+#[derive(Clone)]
 pub struct Analyzer {
     corpus: Corpus,
 }
