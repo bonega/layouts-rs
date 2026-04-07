@@ -4,6 +4,7 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use rand::{Rng, prelude::*, rng, rngs::StdRng};
+use rayon::prelude::*;
 
 use crate::{
     analyzer::{Analyzer, Metric, Metrics},
@@ -90,32 +91,42 @@ impl<const C: usize, const R: usize> OptimizableLayout<C, R> {
     }
 
     fn diff(&self) -> usize {
-        self.layout
+        Self::diff_between(&self.layout, &self.initial_layout)
+    }
+
+    fn diff_between(layout: &Layout<C, R>, initial_layout: &Layout<C, R>) -> usize {
+        layout
             .keys()
-            .zip(self.initial_layout.keys())
+            .zip(initial_layout.keys())
             .filter(|(k1, k2)| k1.ch != k2.ch)
             .count()
     }
 
-    fn try_improve(&mut self, score_check: impl Fn(&Layout<C, R>) -> Option<f64>) -> Option<f64> {
+    fn try_improve(
+        &mut self,
+        score_check: impl Fn(&Layout<C, R>) -> Option<f64> + Sync,
+    ) -> Option<f64> {
+        let initial_layout = self.initial_layout;
+        let current_layout = self.layout;
+
         let (score, best_swap) = self
             .swap_moves
-            .clone()
-            .iter()
+            .par_iter()
             .filter_map(|swap_move| {
-                swap_move.apply(&mut self.layout);
+                let mut candidate_layout = current_layout;
+                swap_move.apply(&mut candidate_layout);
+
                 let score = if let Some(max) = self.max_swapped {
-                    if self.diff() <= max {
-                        score_check(&self.layout)
+                    if Self::diff_between(&candidate_layout, &initial_layout) <= max {
+                        score_check(&candidate_layout)
                     } else {
                         None
                     }
                 } else {
-                    score_check(&self.layout)
+                    score_check(&candidate_layout)
                 };
-                swap_move.apply(&mut self.layout);
 
-                score.map(|score| (score, swap_move.clone()))
+                score.map(|score| (score, swap_move))
             })
             .min_by(|(s1, _), (s2, _)| s1.partial_cmp(s2).unwrap_or(Ordering::Equal))?;
 

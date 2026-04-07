@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.102"
 rand = "0.10.0"
+rayon = "1.11.0"
 rstest = "0.26.1"
 
 [dev-dependencies]
