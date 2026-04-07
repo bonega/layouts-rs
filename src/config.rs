@@ -4,9 +4,9 @@ use std::path::Path;
 
 use serde::{Deserialize, Deserializer};
 
-use crate::layout::Pos;
+use crate::{layout::Pos, optimizer::Targets};
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Deserialize)]
 pub struct Config {
     pub layout: LayoutConfig,
     pub optimization: OptimizationConfig,
@@ -20,22 +20,9 @@ pub struct LayoutConfig {
     pub finger_home_positions: HashMap<u8, Pos>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Deserialize)]
 pub struct OptimizationConfig {
-    pub weights: Weights,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct Weights {
-    pub effort: f64,
-}
-
-impl From<Weights> for crate::optimizer::Weights {
-    fn from(value: Weights) -> Self {
-        Self {
-            effort: value.effort,
-        }
-    }
+    pub targets: Targets,
 }
 
 impl Config {

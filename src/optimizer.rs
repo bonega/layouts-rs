@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use rand::{Rng, prelude::*, rng, rngs::StdRng};
 use rayon::prelude::*;
+use serde::Deserialize;
 
 use crate::{
     analyzer::{Analyzer, Metric, Metrics},
@@ -12,8 +13,21 @@ use crate::{
     swaps::SwapMove,
 };
 
-pub struct Weights {
-    pub effort: f64,
+#[derive(Deserialize)]
+pub struct Targets {
+    pub effort: Target,
+}
+
+#[derive(Deserialize)]
+pub struct Target {
+    pub value: f64,
+    pub weight: f64,
+}
+
+impl Target {
+    pub fn score(&self, current_value: f64) -> f64 {
+        self.weight * (current_value - self.value).abs()
+    }
 }
 
 #[derive(Default)]
@@ -28,10 +42,10 @@ struct OptimizerStats {
 }
 
 impl OptimizerStats {
-    fn from(metrics: OptimizerMetrics, weights: &Weights) -> Self {
+    fn from(metrics: OptimizerMetrics, targets: &Targets) -> Self {
         Self {
             effort: metrics.effort,
-            score: weights.effort * metrics.effort / metrics.total_chars,
+            score: targets.effort.score(metrics.effort),
         }
     }
 }
@@ -58,7 +72,7 @@ impl Metrics for OptimizerMetrics {
 
 pub struct Optimizer {
     analyzer: Analyzer,
-    weights: Weights,
+    targets: Targets,
 }
 
 #[derive(Clone)]
@@ -167,8 +181,8 @@ impl<const C: usize, const R: usize> OptimizableLayout<C, R> {
 }
 
 impl Optimizer {
-    pub fn new(analyzer: Analyzer, weights: Weights) -> Self {
-        Self { analyzer, weights }
+    pub fn new(analyzer: Analyzer, targets: Targets) -> Self {
+        Self { analyzer, targets }
     }
 
     pub fn optimize<const C: usize, const R: usize>(
@@ -220,7 +234,7 @@ impl Optimizer {
     fn get_stats<const C: usize, const R: usize>(&self, layout: &Layout<C, R>) -> OptimizerStats {
         let mut metrics = OptimizerMetrics::default();
         self.analyzer.analyze(layout, &mut metrics);
-        OptimizerStats::from(metrics, &self.weights)
+        OptimizerStats::from(metrics, &self.targets)
     }
 }
 
@@ -242,7 +256,15 @@ mod optimizer_tests {
 
         let corpus = Corpus::new([("c".to_string(), 10.0)]);
         let analyzer = Analyzer::new(corpus);
-        let optimizer = Optimizer::new(analyzer, Weights { effort: 1.0 });
+        let optimizer = Optimizer::new(
+            analyzer,
+            Targets {
+                effort: Target {
+                    value: 0.0,
+                    weight: 1.0,
+                },
+            },
+        );
 
         let optimized_layout = optimizer.optimize(&layout, 10, Some(42), &HashSet::new(), None);
 

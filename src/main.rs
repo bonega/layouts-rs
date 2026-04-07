@@ -135,7 +135,7 @@ impl Command {
                 let analyzer = Analyzer::new(corpus);
 
                 let optimizer =
-                    Optimizer::new(analyzer.clone(), config.optimization.weights.into());
+                    Optimizer::new(analyzer.clone(), config.optimization.targets.into());
                 let optimized_layout = optimizer.optimize(
                     &layout,
                     args.iterations,
