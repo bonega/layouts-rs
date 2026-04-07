@@ -40,6 +40,7 @@
               packages = [
                 rustToolchain
                 pkgs.bacon
+                pkgs.taplo
               ];
             };
         }
