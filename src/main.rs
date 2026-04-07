@@ -1,19 +1,14 @@
 use layouts_rs::{
     analyzer::Analyzer,
     corpus::Corpus,
-    layout::{Layout, Pos},
+    layout::{Layout, Pos, layout_string},
     optimizer::{Optimizer, Weights},
     report::{Report, ReportMetrics},
-    swaps::SwapMove,
 };
 
 fn main() {
-    let mut layout = Layout::<3, 12>::new(
-        r#"
-            _ e w q r t   y u i o p _
-            " a s d f g   h j k l ; '
-            _ z x c v b   n m , . / _
-            "#,
+    let layout = Layout::<3, 12>::new(
+        &layout_string("qwerty"),
         vec![
             vec![1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
             vec![1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
@@ -37,9 +32,6 @@ fn main() {
         .into(),
     )
     .unwrap();
-
-    let swaps = SwapMove::single_moves(&[Pos::new(0, 1), Pos::new(0, 3)]);
-    swaps.iter().for_each(|swap| swap.apply(&mut layout));
 
     let corpus = Corpus::new([("hello".to_string(), 10.0)]);
     let analyzer = Analyzer::new(corpus);

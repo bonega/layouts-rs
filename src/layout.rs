@@ -296,6 +296,17 @@ impl<const ROWS: usize, const COLUMNS: usize> std::fmt::Display for Layout<ROWS,
     }
 }
 
+pub fn layout_string(name: &str) -> String {
+    let content = include_str!("../presets.toml");
+    let presets: HashMap<String, String> =
+        toml::from_str(content).expect("Failed to parse presets.toml");
+
+    presets
+        .get(name)
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| name.to_string())
+}
+
 #[cfg(test)]
 pub mod fixtures {
     use rstest::fixture;

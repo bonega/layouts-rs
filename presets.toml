@@ -1,0 +1,11 @@
+qwerty = """  
+    _ q w e r t   y u i o p _
+    " a s d f g   h j k l ; '
+    _ z x c v b   n m , . / _
+"""
+
+colemak-dh = """  
+    _ q w f p b  j l u y ; -
+    _ a r s t g  m n e i o '
+    _ z x c d v  k h , . / _
+"""
