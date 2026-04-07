@@ -236,7 +236,7 @@ mod optimizer_tests {
             "abcd",
             vec![vec![1, 2], vec![1, 2]],
             vec![vec![1.0, 100.0], vec![100.0, 100.0]],
-            vec![pos!(0, 0), pos!(0, 1)],
+            [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
         )
         .unwrap();
 
@@ -260,7 +260,7 @@ mod optimizable_layout_tests {
             "abcd",
             vec![vec![1, 2], vec![1, 2]],
             vec![vec![1.0, 50.0], vec![100.0, 200.0]],
-            vec![pos!(0, 0), pos!(0, 1)],
+            [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
         )
         .unwrap()
     }

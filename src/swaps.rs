@@ -99,7 +99,7 @@ mod single_moves_tests {
             "abcd",
             vec![vec![1, 2], vec![1, 2]],
             vec![vec![1.0, 2.0], vec![3.0, 4.0]],
-            vec![pos!(0, 0), pos!(0, 1)],
+            [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
         )
         .unwrap();
 
@@ -116,7 +116,7 @@ mod single_moves_tests {
             "abcd",
             vec![vec![1, 2], vec![1, 2]],
             vec![vec![1.0, 2.0], vec![3.0, 4.0]],
-            vec![pos!(0, 0), pos!(0, 1)],
+            [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
         )
         .unwrap();
 
@@ -223,7 +223,7 @@ mod column_moves_tests {
             "abcd",
             vec![vec![1, 2], vec![1, 2]],
             vec![vec![1.0, 2.0], vec![3.0, 4.0]],
-            vec![pos!(0, 0), pos!(0, 1)],
+            [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
         )
         .unwrap();
 
@@ -242,7 +242,7 @@ mod column_moves_tests {
             "abcd",
             vec![vec![1, 2], vec![1, 2]],
             vec![vec![1.0, 2.0], vec![3.0, 4.0]],
-            vec![pos!(0, 0), pos!(0, 1)],
+            [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
         )
         .unwrap();
 
@@ -351,7 +351,7 @@ mod row_moves_tests {
             "abcd",
             vec![vec![1, 2], vec![1, 2]],
             vec![vec![1.0, 2.0], vec![3.0, 4.0]],
-            vec![pos!(0, 0), pos!(0, 1)],
+            [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
         )
         .unwrap();
 
@@ -370,7 +370,7 @@ mod row_moves_tests {
             "abcd",
             vec![vec![1, 2], vec![1, 2]],
             vec![vec![1.0, 2.0], vec![3.0, 4.0]],
-            vec![pos!(0, 0), pos!(0, 1)],
+            [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
         )
         .unwrap();
 

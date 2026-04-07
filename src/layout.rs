@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 
 const NONE_CHAR: char = '_';
@@ -129,7 +129,7 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
         definition: &str,
         finger_assignment: Vec<Vec<u8>>,
         finger_effort: Vec<Vec<f64>>,
-        finger_home_positions: Vec<Pos>,
+        finger_home_positions: HashMap<u8, Pos>,
     ) -> anyhow::Result<Self> {
         let definition = definition
             .chars()
@@ -147,11 +147,12 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
             let column = index % COLUMNS;
 
             let finger = Finger::from(finger_assignment[row][column]);
+            let finger_value: u8 = finger.into();
             let pos = Pos::new(row, column);
             let effort = finger_effort[row][column];
             let homerow = finger_home_positions
-                .iter()
-                .any(|pos| pos.r == row && pos.c == column);
+                .get(&finger_value)
+                .is_some_and(|pos| pos.r == row && pos.c == column);
 
             if ch == NONE_CHAR {
                 if homerow {
@@ -191,24 +192,27 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
 
     fn check_finger_home_positions(
         finger_assignment: &[Vec<u8>],
-        finger_home_positions: &[Pos],
+        finger_home_positions: &HashMap<u8, Pos>,
     ) -> anyhow::Result<()> {
-        let mut fingers_with_home = HashSet::<u8>::new();
+        let fingers_in_layout: HashSet<u8> = finger_assignment
+            .iter()
+            .flat_map(|row| row.iter().copied())
+            .collect();
 
-        for pos in finger_home_positions {
+        for (&finger_value, pos) in finger_home_positions {
             if pos.r >= finger_assignment.len() || pos.c >= finger_assignment[pos.r].len() {
                 anyhow::bail!("finger home position {pos:?} is out of bounds");
             }
 
-            let finger_value = finger_assignment[pos.r][pos.c];
-            fingers_with_home.insert(finger_value);
+            let finger_at_pos = finger_assignment[pos.r][pos.c];
+            if finger_at_pos != finger_value {
+                anyhow::bail!("finger home position {pos:?} does not match finger {finger_value}");
+            }
         }
 
-        for row in finger_assignment {
-            for &finger_value in row {
-                if !fingers_with_home.contains(&finger_value) {
-                    anyhow::bail!("finger {finger_value:?} does not have an home position");
-                }
+        for finger_value in &fingers_in_layout {
+            if !finger_home_positions.contains_key(finger_value) {
+                anyhow::bail!("finger {finger_value} does not have an home position");
             }
         }
 
@@ -316,16 +320,17 @@ pub mod fixtures {
                 vec![2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0],
                 vec![3.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 3.0],
             ],
-            vec![
-                pos!(1, 1),
-                pos!(1, 2),
-                pos!(1, 3),
-                pos!(1, 4),
-                pos!(1, 7),
-                pos!(1, 8),
-                pos!(1, 9),
-                pos!(1, 10),
-            ],
+            [
+                (1, pos!(1, 1)),
+                (2, pos!(1, 2)),
+                (3, pos!(1, 3)),
+                (4, pos!(1, 4)),
+                (7, pos!(1, 7)),
+                (8, pos!(1, 8)),
+                (9, pos!(1, 9)),
+                (10, pos!(1, 10)),
+            ]
+            .into(),
         )
         .unwrap()
     }
@@ -404,7 +409,7 @@ mod tests {
                     "abcd",
                     vec![vec![1, 2], vec![1, 2]],
                     vec![vec![1.0, 1.0], vec![1.0, 1.0]],
-                    vec![pos!(0, 0), pos!(0, 1)]
+                    [(1, pos!(0, 0)), (2, pos!(0, 1))].into()
                 )
                 .is_ok()
             );
@@ -413,7 +418,7 @@ mod tests {
                     "abcdef",
                     vec![vec![1, 2, 3], vec![1, 2, 3]],
                     vec![vec![1.0, 1.0, 1.0], vec![1.0, 1.0, 1.0]],
-                    vec![pos!(0, 0), pos!(0, 1), pos!(0, 2)]
+                    [(1, pos!(0, 0)), (2, pos!(0, 1)), (3, pos!(0, 2))].into()
                 )
                 .is_ok()
             );
@@ -422,7 +427,7 @@ mod tests {
                     "aaaa",
                     vec![vec![1, 2], vec![1, 2]],
                     vec![vec![1.0, 1.0], vec![1.0, 1.0]],
-                    vec![pos!(0, 0), pos!(0, 1)]
+                    [(1, pos!(0, 0)), (2, pos!(0, 1))].into()
                 )
                 .is_ok()
             );
@@ -432,7 +437,7 @@ mod tests {
                     "abcde",
                     vec![vec![1, 2], vec![1, 2]],
                     vec![vec![1.0, 1.0], vec![1.0, 1.0]],
-                    vec![pos!(0, 0), pos!(0, 1)]
+                    [(1, pos!(0, 0)), (2, pos!(0, 1))].into()
                 )
                 .is_err()
             );
@@ -441,7 +446,7 @@ mod tests {
                     "abcd",
                     vec![vec![1, 2], vec![1, 2, 3]],
                     vec![vec![1.0, 1.0], vec![1.0, 1.0]],
-                    vec![pos!(0, 0), pos!(0, 1)]
+                    [(1, pos!(0, 0)), (2, pos!(0, 1))].into()
                 )
                 .is_err()
             );
@@ -451,7 +456,7 @@ mod tests {
                     "abcd",
                     vec![vec![1, 2], vec![1, 2]],
                     vec![vec![1.0, 1.0], vec![1.0]],
-                    vec![pos!(0, 0), pos!(0, 1)]
+                    [(1, pos!(0, 0)), (2, pos!(0, 1))].into()
                 )
                 .is_err()
             );
@@ -460,7 +465,7 @@ mod tests {
                     "abcd",
                     vec![vec![1, 2], vec![1, 2]],
                     vec![vec![1.0, 1.0], vec![1.0, 1.0]],
-                    vec![]
+                    [].into()
                 )
                 .is_err()
             );
@@ -469,7 +474,7 @@ mod tests {
                     "abcd",
                     vec![vec![1, 2], vec![1, 2]],
                     vec![vec![1.0, 1.0], vec![1.0, 1.0]],
-                    vec![pos!(0, 0), pos!(0, 0)]
+                    [(1, pos!(0, 0)), (2, pos!(0, 0))].into()
                 )
                 .is_err()
             );
@@ -478,7 +483,7 @@ mod tests {
                     "abcd",
                     vec![vec![1, 2], vec![1, 2]],
                     vec![vec![1.0, 1.0], vec![1.0, 1.0]],
-                    vec![pos!(0, 0), pos!(1, 0)]
+                    [(1, pos!(0, 0)), (2, pos!(1, 0))].into()
                 )
                 .is_err()
             );
@@ -490,7 +495,7 @@ mod tests {
                 "_ab_cd",
                 vec![vec![1, 1, 2], vec![1, 1, 2]],
                 vec![vec![1.0, 1.0, 1.0], vec![1.0, 1.0, 1.0]],
-                vec![pos!(0, 1), pos!(0, 2)],
+                [(1, pos!(0, 1)), (2, pos!(0, 2))].into(),
             )
             .unwrap();
 
@@ -513,14 +518,7 @@ mod tests {
             "#,
                     vec![vec![1, 2, 3], vec![1, 2, 3]],
                     vec![vec![1.0, 1.0, 1.0], vec![1.0, 1.0, 1.0]],
-                    vec![
-                        pos!(0, 0),
-                        pos!(0, 1),
-                        pos!(0, 2),
-                        pos!(1, 0),
-                        pos!(1, 1),
-                        pos!(1, 2)
-                    ]
+                    [(1, pos!(0, 0)), (2, pos!(0, 1)), (3, pos!(0, 2))].into()
                 )
                 .is_ok()
             );
@@ -532,7 +530,7 @@ mod tests {
                 "abcdef",
                 vec![vec![1, 2, 3], vec![1, 2, 3]],
                 vec![vec![1.0, 1.0, 1.0], vec![2.0, 2.0, 2.0]],
-                vec![pos!(0, 0), pos!(0, 1), pos!(0, 2)],
+                [(1, pos!(0, 0)), (2, pos!(0, 1)), (3, pos!(0, 2))].into(),
             )
             .unwrap();
 
@@ -558,7 +556,7 @@ mod tests {
                 "abcd",
                 vec![vec![1, 2], vec![1, 2]],
                 vec![vec![1.0, 1.0], vec![1.0, 1.0]],
-                vec![pos!(0, 0), pos!(0, 1)],
+                [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
             )
             .unwrap();
 
@@ -575,7 +573,7 @@ mod tests {
                 "abcd",
                 vec![vec![1, 2], vec![1, 2]],
                 vec![vec![1.0, 1.0], vec![1.0, 1.0]],
-                vec![pos!(0, 0), pos!(0, 1)],
+                [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
             )
             .unwrap();
 
@@ -593,7 +591,7 @@ mod tests {
                 "abcd",
                 vec![vec![1, 2], vec![1, 2]],
                 vec![vec![1.0, 1.0], vec![1.0, 1.0]],
-                vec![pos!(0, 0), pos!(0, 1)],
+                [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
             )
             .unwrap();
 
@@ -607,7 +605,7 @@ mod tests {
                 "abcd",
                 vec![vec![1, 2], vec![1, 2]],
                 vec![vec![1.0, 1.0], vec![1.0, 1.0]],
-                vec![pos!(0, 0), pos!(0, 1)],
+                [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
             )
             .unwrap();
 
@@ -622,7 +620,7 @@ mod tests {
                 "abcd",
                 vec![vec![1, 2], vec![1, 2]],
                 vec![vec![1.0, 1.0], vec![1.0, 1.0]],
-                vec![pos!(0, 0), pos!(0, 1)],
+                [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
             )
             .unwrap();
 
