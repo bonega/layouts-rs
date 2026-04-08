@@ -1,11 +1,13 @@
 qwerty = """  
     _ q w e r t   y u i o p _
-    _ a s d f g   h j k l ; _
-    _ z x c v b   n m , . / _
+    _ a s d f g   h j k l * _
+    _ z x c v b   n m * * * _
+    _ _ _ _ _ _   _ _ _ _ _ _
 """
 
 colemak-dh = """  
-    _ q w f p b  j l u y ; _
+    _ q w f p b  j l u y * _
     _ a r s t g  m n e i o _
-    _ z x c d v  k h , . / _
+    _ z x c d v  k h * * * _
+    _ _ _ _ _ _  _ _ _ _ _ _
 """

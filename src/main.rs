@@ -160,8 +160,8 @@ impl Command {
         &self,
         layout_str: &str,
         config: &LayoutConfig,
-    ) -> anyhow::Result<Layout<3, 12>> {
-        Layout::<3, 12>::new(
+    ) -> anyhow::Result<Layout<4, 12>> {
+        Layout::<4, 12>::new(
             layout_str,
             config.finger_assignment.clone(),
             config.finger_effort.clone(),

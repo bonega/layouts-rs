@@ -142,12 +142,12 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
         Self::check_matrix("definition", &definition)?;
         Self::check_matrix("finger assignment", &finger_assignment)?;
         Self::check_matrix("finger effort", &finger_effort)?;
-        Self::check_finger_home_positions(&finger_assignment, &finger_home_positions)?;
+        Self::check_finger_home_positions(&definition, &finger_assignment, &finger_home_positions)?;
 
         let mut keys = Self::default_keys();
         for (row, row_chars) in definition.iter().enumerate() {
             for (column, &ch) in row_chars.iter().enumerate() {
-                if ch == NONE_CHAR {
+                if finger_assignment[row][column] == 0 || ch == NONE_CHAR {
                     continue;
                 }
 
@@ -179,6 +179,7 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
     }
 
     fn check_finger_home_positions(
+        definition: &[Vec<char>],
         finger_assignment: &[Vec<u8>],
         finger_home_positions: &HashMap<u8, Pos>,
     ) -> anyhow::Result<()> {
@@ -199,8 +200,30 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
         }
 
         for finger_value in &fingers_in_layout {
-            if !finger_home_positions.contains_key(finger_value) {
-                anyhow::bail!("finger {finger_value} does not have an home position");
+            if *finger_value != 0 && !finger_home_positions.contains_key(finger_value) {
+                anyhow::bail!("finger {finger_value} does not have a home position");
+            }
+        }
+
+        for (&finger_value, home) in finger_home_positions.iter() {
+            if definition[home.r][home.c] != NONE_CHAR {
+                continue;
+            }
+
+            for (r, row) in finger_assignment.iter().enumerate() {
+                for (c, &f) in row.iter().enumerate() {
+                    if f == finger_value
+                        && (r != home.r || c != home.c)
+                        && definition[r][c] != NONE_CHAR
+                    {
+                        anyhow::bail!(
+                            "finger {finger_value} has empty home at ({}, {}) but non-empty key '{}' at ({r}, {c})",
+                            home.r,
+                            home.c,
+                            definition[r][c]
+                        );
+                    }
+                }
             }
         }
 
@@ -472,6 +495,15 @@ mod tests {
                     vec![vec![1, 2], vec![1, 2]],
                     vec![vec![1.0, 1.0], vec![1.0, 1.0]],
                     [(1, pos!(0, 0)), (2, pos!(1, 0))].into()
+                )
+                .is_err()
+            );
+            check!(
+                Layout::<2, 2>::new(
+                    "_bcd",
+                    vec![vec![1, 2], vec![1, 2]],
+                    vec![vec![1.0, 1.0], vec![1.0, 1.0]],
+                    [(1, pos!(0, 0)), (2, pos!(0, 1))].into()
                 )
                 .is_err()
             );
