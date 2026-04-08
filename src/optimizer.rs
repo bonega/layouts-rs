@@ -365,7 +365,7 @@ impl<const C: usize, const R: usize> OptimizableLayout<C, R> {
 
         let mut applied = 0;
         for _ in 0..attempts {
-            if applied >= 2 {
+            if applied >= 2.max(n / 4) {
                 break;
             }
 
