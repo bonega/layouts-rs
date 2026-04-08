@@ -131,51 +131,39 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
         finger_effort: Vec<Vec<f64>>,
         finger_home_positions: HashMap<u8, Pos>,
     ) -> anyhow::Result<Self> {
-        let definition = definition
+        let definition: Vec<Vec<char>> = definition
             .chars()
             .filter(|c| !c.is_whitespace())
-            .collect::<String>();
+            .collect::<Vec<char>>()
+            .chunks(COLUMNS)
+            .map(|chunk| chunk.to_vec())
+            .collect();
 
-        Self::check_definition(&definition)?;
+        Self::check_matrix("definition", &definition)?;
         Self::check_matrix("finger assignment", &finger_assignment)?;
         Self::check_matrix("finger effort", &finger_effort)?;
         Self::check_finger_home_positions(&finger_assignment, &finger_home_positions)?;
 
         let mut keys = Self::default_keys();
-        for (index, ch) in definition.chars().enumerate() {
-            let row = index / COLUMNS;
-            let column = index % COLUMNS;
-
-            let finger = Finger::from(finger_assignment[row][column]);
-            let finger_value: u8 = finger.into();
-            let pos = Pos::new(row, column);
-            let effort = finger_effort[row][column];
-            let homerow = finger_home_positions
-                .get(&finger_value)
-                .is_some_and(|pos| pos.r == row && pos.c == column);
-
-            if ch == NONE_CHAR {
-                if homerow {
-                    anyhow::bail!("home position at ({row}, {column}) cannot be empty");
+        for (row, row_chars) in definition.iter().enumerate() {
+            for (column, &ch) in row_chars.iter().enumerate() {
+                if ch == NONE_CHAR {
+                    continue;
                 }
-                continue;
-            }
 
-            keys[row][column] = Some(Key::new(ch, finger, pos, effort, homerow));
+                let finger = Finger::from(finger_assignment[row][column]);
+                let finger_value: u8 = finger.into();
+                let pos = Pos::new(row, column);
+                let effort = finger_effort[row][column];
+                let homerow = finger_home_positions
+                    .get(&finger_value)
+                    .is_some_and(|hp| hp.r == row && hp.c == column);
+
+                keys[row][column] = Some(Key::new(ch, finger, pos, effort, homerow));
+            }
         }
 
         Ok(Self { keys })
-    }
-
-    fn check_definition(definition: &str) -> anyhow::Result<()> {
-        if definition.len() != ROWS * COLUMNS {
-            anyhow::bail!(
-                "expected {ROWS} rows and {COLUMNS} columns, received {} characters",
-                definition.len()
-            );
-        }
-
-        Ok(())
     }
 
     fn check_matrix<T>(matrix_name: &str, matrix: &[Vec<T>]) -> anyhow::Result<()> {
