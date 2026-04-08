@@ -1,8 +1,46 @@
+use std::collections::HashMap;
+
 use crate::{
     corpus::Corpus,
-    layout::Layout,
+    layout::{Key, Layout},
     ngrams::{Bigram, Trigram, Unigram},
 };
+
+const ASCII_LOOKUP_SIZE: usize = 128;
+pub struct KeyLookup<'a> {
+    ascii: [Option<&'a Key>; ASCII_LOOKUP_SIZE],
+    extra: HashMap<char, &'a Key>,
+}
+
+impl<'a> KeyLookup<'a> {
+    pub fn get(&self, ch: &char) -> Option<&'a Key> {
+        let code = *ch as usize;
+        if code < ASCII_LOOKUP_SIZE
+            && let Some(key) = self.ascii[code]
+        {
+            return Some(key);
+        }
+        self.extra.get(ch).copied()
+    }
+}
+
+impl<'a> FromIterator<&'a Key> for KeyLookup<'a> {
+    fn from_iter<I: IntoIterator<Item = &'a Key>>(iter: I) -> Self {
+        let mut ascii: [Option<&'a Key>; ASCII_LOOKUP_SIZE] = [None; ASCII_LOOKUP_SIZE];
+        let mut extra: HashMap<char, &'a Key> = HashMap::new();
+
+        for key in iter {
+            let code = key.ch as usize;
+            if code < ASCII_LOOKUP_SIZE {
+                ascii[code] = Some(key);
+            } else {
+                extra.insert(key.ch, key);
+            }
+        }
+
+        Self { ascii, extra }
+    }
+}
 
 #[derive(Clone)]
 pub struct Analyzer {
@@ -19,10 +57,12 @@ impl Analyzer {
         layout: &Layout<C, R>,
         metrics: &mut impl Metrics,
     ) {
+        let lookup: KeyLookup = layout.keys().collect();
+
         metrics.collect_metric(Metric::CorpusLenght(self.corpus.chars_length));
 
         for (char, count) in self.corpus.unigrams.iter() {
-            let Some(key) = layout.key_for(*char) else {
+            let Some(key) = lookup.get(char) else {
                 continue;
             };
 
@@ -30,7 +70,7 @@ impl Analyzer {
         }
 
         for ((char1, char2), count) in self.corpus.bigrams.iter() {
-            let Some((key1, key2)) = layout.key_for(*char1).zip(layout.key_for(*char2)) else {
+            let Some((key1, key2)) = lookup.get(char1).zip(lookup.get(char2)) else {
                 continue;
             };
 
@@ -38,11 +78,10 @@ impl Analyzer {
         }
 
         for ((char1, char2, char3), count) in self.corpus.trigrams.iter() {
-            let Some((key1, key2, key3)) = layout
-                .key_for(*char1)
-                .zip(layout.key_for(*char2))
-                .zip(layout.key_for(*char3))
-                .map(|((k1, k2), k3)| (k1, k2, k3))
+            let Some(((key1, key2), key3)) = lookup
+                .get(char1)
+                .zip(lookup.get(char2))
+                .zip(lookup.get(char3))
             else {
                 continue;
             };
