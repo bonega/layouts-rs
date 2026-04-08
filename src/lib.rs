@@ -43,6 +43,7 @@ macro_rules! optimizer_target {
         crate::optimizer::Target {
             value: $value,
             weight: $weight,
+            scale: 1.0,
         }
     };
 }

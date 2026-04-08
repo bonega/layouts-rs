@@ -26,17 +26,17 @@ finger_effort = [
 10 = [1, 10]
 
 [optimization.targets]
-effort = { value = 0.0, weight = 0.4 }
-pinky_off_home = { value = 0.0, weight = 0.5 }
-left_hand_usage = { value = 50.0, weight = 0.7 }
-bigram_skips_1 = { value = 0.0, weight = 2.0 }
-bigram_skips_n = { value = 0.0, weight = 2.0 }
-bigram_lateral_stretches = { value = 0.0, weight = 0.5 }
-bigram_scissors = { value = 0.0, weight = 0.8 }
-bigram_wide_scissors = { value = 0.0, weight = 1.0 }
-trigram_same_hand_skips = { value = 0.0, weight = 0.2 }
-trigram_alternation_skips = { value = 0.0, weight = 0.2 }
-trigram_roll_ratio = { value = 50.0, weight = 0.0 }
-trigram_redirects_weak = { value = 0.0, weight = 0.7 }
-trigram_redirects_strong = { value = 0.0, weight = 0.5 }
-trigram_alternations = { value = 50.0, weight = 1.0 }
+effort = { value = 0.0, weight = 1.0, scale = 50.0 }
+pinky_off_home = { value = 0.0, weight = 1.0, scale = 1.0 }
+left_hand_usage = { value = 50.0, weight = 1.0, scale = 8.0 }
+bigram_skips_1 = { value = 0.0, weight = 1.0, scale = 1.0 }
+bigram_skips_n = { value = 0.0, weight = 1.0, scale = 1.0 }
+bigram_lateral_stretches = { value = 0.0, weight = 1.0, scale = 1.0 }
+bigram_scissors = { value = 0.0, weight = 1.0, scale = 2.0 }
+bigram_wide_scissors = { value = 0.0, weight = 1.0, scale = 1.0 }
+trigram_same_hand_skips = { value = 0.0, weight = 1.0, scale = 1.0 }
+trigram_alternation_skips = { value = 0.0, weight = 1.0, scale = 1.0 }
+trigram_roll_ratio = { value = 50.0, weight = 1.0, scale = 15.0 }
+trigram_redirects_weak = { value = 0.0, weight = 1.0, scale = 1.0 }
+trigram_redirects_strong = { value = 0.0, weight = 1.0, scale = 1.0 }
+trigram_alternations = { value = 100.0, weight = 1.0, scale = 8.0 }

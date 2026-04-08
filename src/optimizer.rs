@@ -32,15 +32,31 @@ pub struct Targets {
     pub trigram_alternations: Target,
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize)]
 pub struct Target {
     pub value: f64,
     pub weight: f64,
+    #[serde(default = "default_scale")]
+    pub scale: f64,
+}
+
+impl Default for Target {
+    fn default() -> Self {
+        Self {
+            value: 0.0,
+            weight: 0.0,
+            scale: 1.0,
+        }
+    }
+}
+
+fn default_scale() -> f64 {
+    1.0
 }
 
 impl Target {
     pub fn score(&self, current_value: f64) -> f64 {
-        self.weight * (current_value - self.value).abs()
+        self.weight * ((current_value - self.value).abs() / self.scale)
     }
 }
 
@@ -475,6 +491,7 @@ mod optimizer_tests {
                 effort: Target {
                     value: 0.0,
                     weight: 1.0,
+                    scale: 1.0,
                 },
                 ..Default::default()
             },
