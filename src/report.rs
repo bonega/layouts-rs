@@ -262,47 +262,65 @@ impl From<ReportMetrics> for Report {
 
 impl Display for Report {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Effort: {}%", self.effort)?;
-        writeln!(f, "Left hand usage: {}%", self.left_hand_usage)?;
-        writeln!(f, "Right hand usage: {}%", self.right_hand_usage)?;
-        writeln!(f, "Pinky off home: {}%", self.pinky_off_home)?;
+        writeln!(f, "Effort: {:.2}%", self.effort)?;
+        writeln!(f, "Left hand usage: {:.2}%", self.left_hand_usage)?;
+        writeln!(f, "Right hand usage: {:.2}%", self.right_hand_usage)?;
+        writeln!(f, "Pinky off home: {:.2}%", self.pinky_off_home)?;
+
         writeln!(f, "Finger usage:")?;
-        for (finger, usage) in &self.finger_usage {
-            writeln!(f, "  {:?}: {}%", u8::from(*finger), usage)?;
+        let mut fingers: Vec<_> = self.finger_usage.iter().collect();
+        fingers.sort_by_key(|(finger, _)| u8::from(**finger));
+        for (finger, usage) in fingers {
+            writeln!(f, "  {:?}: {:.2}%", u8::from(*finger), usage)?;
         }
+
         writeln!(f, "Row usage:")?;
-        for (row, usage) in &self.row_usage {
-            writeln!(f, "  Row {}: {}%", row, usage)?;
+        let mut rows: Vec<_> = self.row_usage.iter().collect();
+        rows.sort_by_key(|(row, _)| **row);
+        for (row, usage) in rows {
+            writeln!(f, "  Row {}: {:.2}%", row, usage)?;
         }
+
         writeln!(f, "Column usage:")?;
-        for (column, usage) in &self.column_usage {
-            writeln!(f, "  Column {}: {}%", column, usage)?;
+        let mut columns: Vec<_> = self.column_usage.iter().collect();
+        columns.sort_by_key(|(col, _)| **col);
+        for (column, usage) in columns {
+            writeln!(f, "  Column {}: {:.2}%", column, usage)?;
         }
+
         writeln!(f, "Bigram metrics:")?;
-        writeln!(f, "  Skips (1): {}%", self.bigram_skips_1)?;
-        writeln!(f, "  Skips (n): {}%", self.bigram_skips_n)?;
-        writeln!(f, "  Lateral stretches: {}%", self.bigram_lateral_stretches)?;
-        writeln!(f, "  Scissors: {}%", self.bigram_scissors)?;
-        writeln!(f, "  Others: {}%", self.bigram_others)?;
-        writeln!(f, "Trigram metrics:")?;
-        writeln!(f, "  Same-hand skips: {}%", self.trigram_same_hand_skips)?;
+        writeln!(f, "  Skips (1): {:.2}%", self.bigram_skips_1)?;
+        writeln!(f, "  Skips (n): {:.2}%", self.bigram_skips_n)?;
         writeln!(
             f,
-            "  Alternation skips: {}%",
+            "  Lateral stretches: {:.2}%",
+            self.bigram_lateral_stretches
+        )?;
+        writeln!(f, "  Scissors: {:.2}%", self.bigram_scissors)?;
+        writeln!(f, "  Others: {:.2}%", self.bigram_others)?;
+        writeln!(f, "Trigram metrics:")?;
+        writeln!(f, "  Same-hand skips: {:.2}%", self.trigram_same_hand_skips)?;
+        writeln!(
+            f,
+            "  Alternation skips: {:.2}%",
             self.trigram_alternation_skips
         )?;
-        writeln!(f, "  Roll-in: {}%", self.trigram_roll_in)?;
-        writeln!(f, "  Roll-out: {}%", self.trigram_roll_out)?;
-        writeln!(f, "  Roll-in bigrams: {}%", self.trigram_roll_in_bigrams)?;
-        writeln!(f, "  Roll-out bigrams: {}%", self.trigram_roll_out_bigrams)?;
-        writeln!(f, "  Redirects (weak): {}%", self.trigram_redirects_weak)?;
+        writeln!(f, "  Roll-in: {:.2}%", self.trigram_roll_in)?;
+        writeln!(f, "  Roll-out: {:.2}%", self.trigram_roll_out)?;
+        writeln!(f, "  Roll-in bigrams: {:.2}%", self.trigram_roll_in_bigrams)?;
         writeln!(
             f,
-            "  Redirects (strong): {}%",
+            "  Roll-out bigrams: {:.2}%",
+            self.trigram_roll_out_bigrams
+        )?;
+        writeln!(f, "  Redirects (weak): {:.2}%", self.trigram_redirects_weak)?;
+        writeln!(
+            f,
+            "  Redirects (strong): {:.2}%",
             self.trigram_redirects_strong
         )?;
-        writeln!(f, "  Alternations: {}%", self.trigram_alternations)?;
-        writeln!(f, "  Others: {}%", self.trigram_others)?;
+        writeln!(f, "  Alternations: {:.2}%", self.trigram_alternations)?;
+        writeln!(f, "  Others: {:.2}%", self.trigram_others)?;
         Ok(())
     }
 }
