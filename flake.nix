@@ -37,10 +37,11 @@
               rustToolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
             in
             pkgs.mkShell {
-              packages = [
+              packages = with pkgs; [
                 rustToolchain
-                pkgs.bacon
-                pkgs.taplo
+                bacon
+                taplo
+                just
               ];
             };
         }
