@@ -48,6 +48,12 @@ struct OptimizeArgs {
         help = "Maximum number of keys to swap in each optimization iteration"
     )]
     max_swapped: Option<usize>,
+    #[arg(
+        long,
+        default_value = "false",
+        help = "Whether to shuffle the layout before optimization"
+    )]
+    shuffle: bool,
 }
 
 #[derive(Parser)]
@@ -142,6 +148,7 @@ impl Command {
                     args.seed,
                     &args.pinned.chars().collect(),
                     args.max_swapped,
+                    args.shuffle,
                 );
 
                 let mut report_metrics = ReportMetrics::default();

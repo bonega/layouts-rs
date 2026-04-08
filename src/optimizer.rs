@@ -343,6 +343,19 @@ impl<const C: usize, const R: usize> OptimizableLayout<C, R> {
         Some(score)
     }
 
+    fn shuffle<RNG: Rng + ?Sized>(&mut self, rng: &mut RNG, size: usize) {
+        let n = self.swap_moves.len();
+
+        if n == 0 {
+            return;
+        }
+
+        for _ in 0..size {
+            let swap = &self.swap_moves[rng.next_u64() as usize % n];
+            swap.apply(&mut self.layout);
+        }
+    }
+
     fn perturb<RNG: Rng + ?Sized>(&mut self, rng: &mut RNG, attempts: usize) {
         let n = self.swap_moves.len();
 
@@ -386,6 +399,7 @@ impl Optimizer {
         seed: Option<u64>,
         pinned_chars: &HashSet<char>,
         max_swapped: Option<usize>,
+        shuffle: bool,
     ) -> Layout<C, R> {
         let mut rng: StdRng = if let Some(seed) = seed {
             StdRng::seed_from_u64(seed)
@@ -394,7 +408,12 @@ impl Optimizer {
         };
 
         let mut best_layout = OptimizableLayout::new(*layout, pinned_chars, max_swapped);
-        let mut best_score = f64::INFINITY;
+
+        if shuffle {
+            best_layout.shuffle(&mut rng, 100);
+        }
+
+        let mut best_score = self.get_score(&best_layout.layout);
 
         for iteration in 0..iterations {
             let mut candidate = best_layout.clone();
@@ -461,7 +480,8 @@ mod optimizer_tests {
             },
         );
 
-        let optimized_layout = optimizer.optimize(&layout, 10, Some(42), &HashSet::new(), None);
+        let optimized_layout =
+            optimizer.optimize(&layout, 10, Some(42), &HashSet::new(), None, false);
 
         check!(optimized_layout.key_for('c').unwrap().effort == 1.0);
     }
@@ -621,6 +641,18 @@ mod optimizable_layout_tests {
 
         check!(optimizable.diff() > 0);
         check!(optimizable.diff() <= 4);
+    }
+
+    #[test]
+    fn it_shuffles_layoyt_ignoring_max_swapped() {
+        let mut optimizable = OptimizableLayout::new(make_layout(), &[].into(), Some(0));
+        let before: Vec<char> = optimizable.layout().keys().map(|k| k.ch).collect();
+
+        let mut rng = StdRng::seed_from_u64(42);
+        optimizable.shuffle(&mut rng, 10);
+
+        let after: Vec<char> = optimizable.layout().keys().map(|k| k.ch).collect();
+        check!(before != after);
     }
 
     fn layout_effort_score<const C: usize, const R: usize>(layout: &Layout<C, R>) -> f64 {
