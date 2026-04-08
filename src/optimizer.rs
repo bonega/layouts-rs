@@ -9,16 +9,30 @@ use serde::Deserialize;
 
 use crate::{
     analyzer::{Analyzer, Metric, Metrics},
-    layout::{Layout, Pos},
+    layout::{FingerKind, Hand, Layout, Pos},
+    ngrams::{BigramKind, TrigramKind},
     swaps::SwapMove,
 };
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Default)]
 pub struct Targets {
     pub effort: Target,
+    pub left_hand_usage: Target,
+    pub pinky_off_home: Target,
+    pub bigram_skips_1: Target,
+    pub bigram_skips_n: Target,
+    pub bigram_lateral_stretches: Target,
+    pub bigram_scissors: Target,
+    pub bigram_wide_scissors: Target,
+    pub trigram_same_hand_skips: Target,
+    pub trigram_alternation_skips: Target,
+    pub trigram_roll_ratio: Target,
+    pub trigram_redirects_weak: Target,
+    pub trigram_redirects_strong: Target,
+    pub trigram_alternations: Target,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Default)]
 pub struct Target {
     pub value: f64,
     pub weight: f64,
@@ -34,25 +48,140 @@ impl Target {
 struct OptimizerMetrics {
     total_chars: f64,
     effort: f64,
+    left_hand: f64,
+    pinky_off_home: f64,
+    bigram_skips_1: f64,
+    bigram_skips_n: f64,
+    bigram_lateral_stretches: f64,
+    bigram_scissors: f64,
+    bigram_wide_scissors: f64,
+    trigram_same_hand_skips: f64,
+    trigram_alternation_skips: f64,
+    trigram_roll_in: f64,
+    trigram_roll_out: f64,
+    trigram_redirects_weak: f64,
+    trigram_redirects_strong: f64,
+    trigram_alternations: f64,
 }
 
 struct OptimizerStats {
     effort: f64,
-    score: f64,
+    left_hand_usage: f64,
+    pinky_off_home: f64,
+    bigram_skips_1: f64,
+    bigram_skips_n: f64,
+    bigram_lateral_stretches: f64,
+    bigram_scissors: f64,
+    bigram_wide_scissors: f64,
+    trigram_same_hand_skips: f64,
+    trigram_alternation_skips: f64,
+    trigram_roll_ratio: f64,
+    trigram_redirects_weak: f64,
+    trigram_redirects_strong: f64,
+    trigram_alternations: f64,
 }
 
 impl OptimizerStats {
-    fn from(metrics: OptimizerMetrics, targets: &Targets) -> Self {
+    fn score(&self, targets: &Targets) -> f64 {
+        targets.effort.score(self.effort)
+            + targets.left_hand_usage.score(self.left_hand_usage)
+            + targets.pinky_off_home.score(self.pinky_off_home)
+            + targets.bigram_skips_1.score(self.bigram_skips_1)
+            + targets.bigram_skips_n.score(self.bigram_skips_n)
+            + targets
+                .bigram_lateral_stretches
+                .score(self.bigram_lateral_stretches)
+            + targets.bigram_scissors.score(self.bigram_scissors)
+            + targets
+                .bigram_wide_scissors
+                .score(self.bigram_wide_scissors)
+            + targets
+                .trigram_same_hand_skips
+                .score(self.trigram_same_hand_skips)
+            + targets
+                .trigram_alternation_skips
+                .score(self.trigram_alternation_skips)
+            + targets.trigram_roll_ratio.score(self.trigram_roll_ratio)
+            + targets
+                .trigram_redirects_weak
+                .score(self.trigram_redirects_weak)
+            + targets
+                .trigram_redirects_strong
+                .score(self.trigram_redirects_strong)
+            + targets
+                .trigram_alternations
+                .score(self.trigram_alternations)
+    }
+}
+
+impl From<OptimizerMetrics> for OptimizerStats {
+    fn from(metrics: OptimizerMetrics) -> Self {
+        let pct = 100.0 / metrics.total_chars;
+
+        let effort = pct * metrics.effort;
+        let left_hand_usage = pct * metrics.left_hand;
+        let pinky_off_home = pct * metrics.pinky_off_home;
+        let bigram_skips_1 = pct * metrics.bigram_skips_1;
+        let bigram_skips_n = pct * metrics.bigram_skips_n;
+        let bigram_lateral_stretches = pct * metrics.bigram_lateral_stretches;
+        let bigram_scissors = pct * metrics.bigram_scissors;
+        let bigram_wide_scissors = pct * metrics.bigram_wide_scissors;
+        let trigram_same_hand_skips = pct * metrics.trigram_same_hand_skips;
+        let trigram_alternation_skips = pct * metrics.trigram_alternation_skips;
+
+        let total_roll = metrics.trigram_roll_in + metrics.trigram_roll_out;
+        let trigram_roll_ratio = if total_roll > 0.0 {
+            100.0 * metrics.trigram_roll_in / total_roll
+        } else {
+            50.0
+        };
+
+        let trigram_redirects_weak = pct * metrics.trigram_redirects_weak;
+        let trigram_redirects_strong = pct * metrics.trigram_redirects_strong;
+        let trigram_alternations = pct * metrics.trigram_alternations;
+
         Self {
-            effort: metrics.effort,
-            score: targets.effort.score(metrics.effort),
+            effort,
+            left_hand_usage,
+            pinky_off_home,
+            bigram_skips_1,
+            bigram_skips_n,
+            bigram_lateral_stretches,
+            bigram_scissors,
+            bigram_wide_scissors,
+            trigram_same_hand_skips,
+            trigram_alternation_skips,
+            trigram_roll_ratio,
+            trigram_redirects_weak,
+            trigram_redirects_strong,
+            trigram_alternations,
         }
     }
 }
 
 impl Display for OptimizerStats {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Effort: {:.2}, Score: {:.4}", self.effort, self.score)
+        write!(
+            f,
+            "Eff: {:.2}% LHu: {:.2}% PkOH: {:.2}% Sk1: {:.2}% SkN: {:.2}% \
+             LS: {:.2}% Sci: {:.2}% WSci: {:.2}% | \
+             SHSk: {:.2}% ASk: {:.2}% RRat: {:.2}% \
+             RedW: {:.2}% RedS: {:.2}% Alt: {:.2}%",
+            self.effort,
+            self.left_hand_usage,
+            self.pinky_off_home,
+            self.bigram_skips_1,
+            self.bigram_skips_n,
+            self.bigram_lateral_stretches,
+            self.bigram_scissors,
+            self.bigram_wide_scissors,
+            self.trigram_same_hand_skips,
+            self.trigram_alternation_skips,
+            self.trigram_roll_ratio,
+            self.trigram_redirects_weak,
+            self.trigram_redirects_strong,
+            self.trigram_alternations,
+        )
     }
 }
 
@@ -64,8 +193,73 @@ impl Metrics for OptimizerMetrics {
             }
             Metric::Unigram(unigram, count) => {
                 self.effort += unigram.key.effort * count;
+
+                if unigram.key.finger.hand == Hand::Left {
+                    self.left_hand += count;
+                }
+
+                if unigram.key.finger.kind == FingerKind::Pinky && !unigram.key.finger_home {
+                    self.pinky_off_home += count;
+                }
             }
-            _ => {}
+            Metric::Bigram(bigram, count) => match bigram.kind {
+                BigramKind::SameFingerSkip { skips } => {
+                    if skips == 1 {
+                        self.bigram_skips_1 += count;
+                    } else {
+                        self.bigram_skips_n += count;
+                    }
+                }
+                BigramKind::LateralStretch { .. } => {
+                    self.bigram_lateral_stretches += count;
+                }
+                BigramKind::Scissor {
+                    col_distance,
+                    row_distance,
+                } => {
+                    if col_distance + row_distance > 2 {
+                        self.bigram_wide_scissors += count;
+                    } else {
+                        self.bigram_scissors += count;
+                    }
+                }
+                BigramKind::Other => {}
+            },
+            Metric::Trigram(trigram, count) => match trigram.kind {
+                TrigramKind::SameFingerSkip { same_hand, .. } => {
+                    if same_hand {
+                        self.trigram_same_hand_skips += count;
+                    } else {
+                        self.trigram_alternation_skips += count;
+                    }
+                }
+                TrigramKind::Roll { triple, inward } => match (triple, inward) {
+                    (true, true) => self.trigram_roll_in += count,
+                    (true, false) => self.trigram_roll_out += count,
+                    (false, true) | (false, false) => {}
+                },
+                TrigramKind::RollIn { triple } => {
+                    if triple {
+                        self.trigram_roll_in += count;
+                    }
+                }
+                TrigramKind::RollOut { triple } => {
+                    if triple {
+                        self.trigram_roll_out += count;
+                    }
+                }
+                TrigramKind::Redirect { weak } => {
+                    if weak {
+                        self.trigram_redirects_weak += count;
+                    } else {
+                        self.trigram_redirects_strong += count;
+                    }
+                }
+                TrigramKind::Alternation => {
+                    self.trigram_alternations += count;
+                }
+                TrigramKind::Other => {}
+            },
         }
     }
 }
@@ -228,13 +422,13 @@ impl Optimizer {
     }
 
     fn get_score<const C: usize, const R: usize>(&self, layout: &Layout<C, R>) -> f64 {
-        self.get_stats(layout).score
+        self.get_stats(layout).score(&self.targets)
     }
 
     fn get_stats<const C: usize, const R: usize>(&self, layout: &Layout<C, R>) -> OptimizerStats {
         let mut metrics = OptimizerMetrics::default();
         self.analyzer.analyze(layout, &mut metrics);
-        OptimizerStats::from(metrics, &self.targets)
+        OptimizerStats::from(metrics)
     }
 }
 
@@ -263,6 +457,7 @@ mod optimizer_tests {
                     value: 0.0,
                     weight: 1.0,
                 },
+                ..Default::default()
             },
         );
 
@@ -430,5 +625,276 @@ mod optimizable_layout_tests {
 
     fn layout_effort_score<const C: usize, const R: usize>(layout: &Layout<C, R>) -> f64 {
         layout.keys().map(|k| k.effort).sum()
+    }
+}
+
+#[cfg(test)]
+mod optimizer_metrics_tests {
+    use assert2::check;
+    use rstest::rstest;
+
+    use super::*;
+    use crate::{
+        analyzer::Metric,
+        layout::{Layout, fixtures::qwerty},
+        ngrams::{Bigram, Trigram, Unigram},
+    };
+
+    #[rstest]
+    fn it_collects_unigram_metrics(qwerty: Layout) {
+        let mut metrics = OptimizerMetrics::default();
+
+        metrics.collect_metric(Metric::CorpusLenght(100.0));
+        metrics.collect_metric(Metric::Unigram(
+            Unigram::new(qwerty.key_for('a').unwrap()),
+            1.0,
+        ));
+        metrics.collect_metric(Metric::Unigram(
+            Unigram::new(qwerty.key_for('q').unwrap()),
+            2.0,
+        ));
+        metrics.collect_metric(Metric::Unigram(
+            Unigram::new(qwerty.key_for('z').unwrap()),
+            1.0,
+        ));
+        metrics.collect_metric(Metric::Unigram(
+            Unigram::new(qwerty.key_for('"').unwrap()),
+            1.0,
+        ));
+
+        check!(metrics.total_chars == 100.0);
+        check!(metrics.effort == 9.0);
+        check!(metrics.left_hand == 5.0);
+        check!(metrics.pinky_off_home == 4.0);
+    }
+
+    #[rstest]
+    fn it_collects_bigram_skips_and_stretches(qwerty: Layout) {
+        let mut metrics = OptimizerMetrics::default();
+
+        metrics.collect_metric(Metric::Bigram(
+            Bigram::new(qwerty.key_for('q').unwrap(), qwerty.key_for('a').unwrap()),
+            10.0,
+        ));
+        metrics.collect_metric(Metric::Bigram(
+            Bigram::new(qwerty.key_for('q').unwrap(), qwerty.key_for('z').unwrap()),
+            20.0,
+        ));
+        metrics.collect_metric(Metric::Bigram(
+            Bigram::new(qwerty.key_for('d').unwrap(), qwerty.key_for('g').unwrap()),
+            10.0,
+        ));
+        metrics.collect_metric(Metric::Bigram(
+            Bigram::new(qwerty.key_for('s').unwrap(), qwerty.key_for('"').unwrap()),
+            20.0,
+        ));
+
+        check!(metrics.bigram_skips_1 == 10.0);
+        check!(metrics.bigram_skips_n == 20.0);
+        check!(metrics.bigram_lateral_stretches == 30.0);
+    }
+
+    #[rstest]
+    fn it_collects_bigram_scissors(qwerty: Layout) {
+        let mut metrics = OptimizerMetrics::default();
+
+        metrics.collect_metric(Metric::Bigram(
+            Bigram::new(qwerty.key_for('d').unwrap(), qwerty.key_for('t').unwrap()),
+            10.0,
+        ));
+        metrics.collect_metric(Metric::Bigram(
+            Bigram::new(qwerty.key_for('d').unwrap(), qwerty.key_for('r').unwrap()),
+            20.0,
+        ));
+
+        check!(metrics.bigram_wide_scissors == 10.0);
+        check!(metrics.bigram_scissors == 20.0);
+    }
+
+    #[rstest]
+    fn it_collects_trigram_skips(qwerty: Layout) {
+        let mut metrics = OptimizerMetrics::default();
+
+        metrics.collect_metric(Metric::Trigram(
+            Trigram::new(
+                qwerty.key_for('q').unwrap(),
+                qwerty.key_for('w').unwrap(),
+                qwerty.key_for('a').unwrap(),
+            ),
+            10.0,
+        ));
+        metrics.collect_metric(Metric::Trigram(
+            Trigram::new(
+                qwerty.key_for('q').unwrap(),
+                qwerty.key_for('h').unwrap(),
+                qwerty.key_for('a').unwrap(),
+            ),
+            20.0,
+        ));
+
+        check!(metrics.trigram_same_hand_skips == 10.0);
+        check!(metrics.trigram_alternation_skips == 20.0);
+    }
+
+    #[rstest]
+    fn it_collects_trigram_rolls(qwerty: Layout) {
+        let mut metrics = OptimizerMetrics::default();
+
+        metrics.collect_metric(Metric::Trigram(
+            Trigram::new(
+                qwerty.key_for('q').unwrap(),
+                qwerty.key_for('w').unwrap(),
+                qwerty.key_for('e').unwrap(),
+            ),
+            10.0,
+        ));
+        metrics.collect_metric(Metric::Trigram(
+            Trigram::new(
+                qwerty.key_for('t').unwrap(),
+                qwerty.key_for('e').unwrap(),
+                qwerty.key_for('q').unwrap(),
+            ),
+            20.0,
+        ));
+        metrics.collect_metric(Metric::Trigram(
+            Trigram::new(
+                qwerty.key_for('q').unwrap(),
+                qwerty.key_for('w').unwrap(),
+                qwerty.key_for('p').unwrap(),
+            ),
+            30.0,
+        ));
+        metrics.collect_metric(Metric::Trigram(
+            Trigram::new(
+                qwerty.key_for('t').unwrap(),
+                qwerty.key_for('e').unwrap(),
+                qwerty.key_for('p').unwrap(),
+            ),
+            40.0,
+        ));
+
+        check!(metrics.trigram_roll_in == 10.0);
+        check!(metrics.trigram_roll_out == 20.0);
+    }
+
+    #[rstest]
+    fn it_collects_trigram_redirects_and_alternations(qwerty: Layout) {
+        let mut metrics = OptimizerMetrics::default();
+
+        metrics.collect_metric(Metric::Trigram(
+            Trigram::new(
+                qwerty.key_for('q').unwrap(),
+                qwerty.key_for('t').unwrap(),
+                qwerty.key_for('e').unwrap(),
+            ),
+            10.0,
+        ));
+        metrics.collect_metric(Metric::Trigram(
+            Trigram::new(
+                qwerty.key_for('q').unwrap(),
+                qwerty.key_for('e').unwrap(),
+                qwerty.key_for('w').unwrap(),
+            ),
+            20.0,
+        ));
+        metrics.collect_metric(Metric::Trigram(
+            Trigram::new(
+                qwerty.key_for('q').unwrap(),
+                qwerty.key_for('h').unwrap(),
+                qwerty.key_for('w').unwrap(),
+            ),
+            30.0,
+        ));
+
+        check!(metrics.trigram_redirects_weak == 10.0);
+        check!(metrics.trigram_redirects_strong == 20.0);
+        check!(metrics.trigram_alternations == 30.0);
+    }
+}
+
+#[cfg(test)]
+mod optimizer_stats_tests {
+    use assert2::check;
+
+    use super::*;
+
+    #[test]
+    fn it_builds_stats_from_metrics_and_targets() {
+        let metrics = OptimizerMetrics {
+            total_chars: 200.0,
+            effort: 10.0,
+            left_hand: 20.0,
+            pinky_off_home: 30.0,
+            bigram_skips_1: 40.0,
+            bigram_skips_n: 50.0,
+            bigram_lateral_stretches: 60.0,
+            bigram_scissors: 70.0,
+            bigram_wide_scissors: 80.0,
+            trigram_same_hand_skips: 90.0,
+            trigram_alternation_skips: 100.0,
+            trigram_roll_in: 10.0,
+            trigram_roll_out: 30.0,
+            trigram_redirects_weak: 130.0,
+            trigram_redirects_strong: 140.0,
+            trigram_alternations: 150.0,
+        };
+
+        let stats = OptimizerStats::from(metrics);
+
+        check!(stats.effort == 5.0);
+        check!(stats.left_hand_usage == 10.0);
+        check!(stats.pinky_off_home == 15.0);
+        check!(stats.bigram_skips_1 == 20.0);
+        check!(stats.bigram_skips_n == 25.0);
+        check!(stats.bigram_lateral_stretches == 30.0);
+        check!(stats.bigram_scissors == 35.0);
+        check!(stats.bigram_wide_scissors == 40.0);
+        check!(stats.trigram_same_hand_skips == 45.0);
+        check!(stats.trigram_alternation_skips == 50.0);
+        check!(stats.trigram_roll_ratio == 25.0);
+        check!(stats.trigram_redirects_weak == 65.0);
+        check!(stats.trigram_redirects_strong == 70.0);
+        check!(stats.trigram_alternations == 75.0);
+    }
+
+    #[test]
+    fn it_gives_the_right_score() {
+        let stats = OptimizerStats {
+            effort: 10.0,
+            left_hand_usage: 10.0,
+            pinky_off_home: 10.0,
+            bigram_skips_1: 10.0,
+            bigram_skips_n: 10.0,
+            bigram_lateral_stretches: 10.0,
+            bigram_scissors: 10.0,
+            bigram_wide_scissors: 10.0,
+            trigram_same_hand_skips: 10.0,
+            trigram_alternation_skips: 10.0,
+            trigram_roll_ratio: 10.0,
+            trigram_redirects_weak: 10.0,
+            trigram_redirects_strong: 10.0,
+            trigram_alternations: 10.0,
+        };
+
+        let targets = Targets {
+            effort: optimizer_target!(20.0, 1.0),
+            left_hand_usage: optimizer_target!(20.0, 2.0),
+            pinky_off_home: optimizer_target!(20.0, 3.0),
+            bigram_skips_1: optimizer_target!(20.0, 4.0),
+            bigram_skips_n: optimizer_target!(20.0, 5.0),
+            bigram_lateral_stretches: optimizer_target!(20.0, 6.0),
+            bigram_scissors: optimizer_target!(20.0, 7.0),
+            bigram_wide_scissors: optimizer_target!(20.0, 8.0),
+            trigram_same_hand_skips: optimizer_target!(20.0, 9.0),
+            trigram_alternation_skips: optimizer_target!(20.0, 10.0),
+            trigram_roll_ratio: optimizer_target!(20.0, 11.0),
+            trigram_redirects_weak: optimizer_target!(20.0, 12.0),
+            trigram_redirects_strong: optimizer_target!(20.0, 13.0),
+            trigram_alternations: optimizer_target!(20.0, 14.0),
+        };
+
+        let n = 14.0;
+        let expected = 10.0 * n * (n + 1.0) / 2.0;
+        check!(stats.score(&targets) == expected);
     }
 }

@@ -37,6 +37,16 @@ macro_rules! finger_home_key {
     };
 }
 
+#[cfg(test)]
+macro_rules! optimizer_target {
+    ($value:expr, $weight:expr) => {
+        crate::optimizer::Target {
+            value: $value,
+            weight: $weight,
+        }
+    };
+}
+
 pub mod analyzer;
 pub mod config;
 pub mod corpus;

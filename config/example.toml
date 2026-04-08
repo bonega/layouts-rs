@@ -1,0 +1,38 @@
+[layout]
+finger_assignment = [
+  [1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
+  [1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
+  [1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
+]
+
+finger_effort = [
+  [5.0, 3.0, 2.0, 1.0, 2.0, 7.0, 7.0, 2.0, 1.0, 2.0, 3.0, 5.0],
+  [5.0, 1.0, 1.0, 1.0, 1.0, 5.0, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0],
+  [7.0, 3.0, 2.0, 2.0, 1.0, 8.0, 8.0, 1.0, 2.0, 2.0, 3.0, 7.0],
+]
+
+[layout.finger_home_positions]
+1 = [1, 1]
+2 = [1, 2]
+3 = [1, 3]
+4 = [1, 4]
+7 = [1, 7]
+8 = [1, 8]
+9 = [1, 9]
+10 = [1, 10]
+
+[optimization.targets]
+effort = { value = 0.0, weight = 0.4 }
+pinky_off_home = { value = 0.0, weight = 0.5 }
+left_hand_usage = { value = 50.0, weight = 0.7 }
+bigram_skips_1 = { value = 0.0, weight = 2.0 }
+bigram_skips_n = { value = 0.0, weight = 2.0 }
+bigram_lateral_stretches = { value = 0.0, weight = 0.5 }
+bigram_scissors = { value = 0.0, weight = 0.8 }
+bigram_wide_scissors = { value = 0.0, weight = 1.0 }
+trigram_same_hand_skips = { value = 0.0, weight = 0.2 }
+trigram_alternation_skips = { value = 0.0, weight = 0.2 }
+trigram_roll_ratio = { value = 50.0, weight = 0.0 }
+trigram_redirects_weak = { value = 0.0, weight = 0.7 }
+trigram_redirects_strong = { value = 0.0, weight = 0.5 }
+trigram_alternations = { value = 50.0, weight = 1.0 }
