@@ -19,19 +19,18 @@ impl Corpus {
 
         for (word, count) in word_items {
             corpus.chars_length += count * word.chars().count() as f64;
-
-            let char_at = |i: usize| word.chars().nth(i).unwrap_or('\0');
+            let chars = word.chars().collect::<Vec<_>>();
 
             for (i, ch) in word.chars().enumerate() {
                 *corpus.unigrams.entry(ch).or_insert(0.0) += count;
 
                 if i >= 1 {
-                    let bigram = (char_at(i - 1), ch);
+                    let bigram = (chars[i - 1], ch);
                     *corpus.bigrams.entry(bigram).or_insert(0.0) += count;
                 }
 
                 if i >= 2 {
-                    let trigram = (char_at(i - 2), char_at(i - 1), ch);
+                    let trigram = (chars[i - 2], chars[i - 1], ch);
                     *corpus.trigrams.entry(trigram).or_insert(0.0) += count;
                 }
             }

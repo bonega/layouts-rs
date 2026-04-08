@@ -97,7 +97,7 @@ impl CommonConfig {
         let corpus_map: HashMap<String, f64> = serde_json::from_str(&content)
             .map_err(|e| format!("Failed to parse corpus file {}: {e}", path))?;
 
-        Ok(Corpus::new(corpus_map.into_iter()))
+        Ok(Corpus::new(corpus_map))
     }
 
     fn corpus(&self) -> Corpus {
@@ -109,7 +109,7 @@ impl CommonConfig {
             }
         }
 
-        Corpus::new(aggregated.into_iter())
+        Corpus::new(aggregated)
     }
 }
 
@@ -140,8 +140,7 @@ impl Command {
                 let corpus = args.common.corpus();
                 let analyzer = Analyzer::new(corpus);
 
-                let optimizer =
-                    Optimizer::new(analyzer.clone(), config.optimization.targets.into());
+                let optimizer = Optimizer::new(analyzer.clone(), config.optimization.targets);
                 let optimized_layout = optimizer.optimize(
                     &layout,
                     args.iterations,
