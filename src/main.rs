@@ -124,7 +124,7 @@ impl Command {
                 let corpus = args.common.corpus();
                 let analyzer = Analyzer::new(corpus);
                 let optimizer = Optimizer::new(analyzer.clone(), config.optimization.targets);
-                let score = optimizer.score_layout(&layout);
+                let score = optimizer.score(&layout);
 
                 let mut report_metrics = ReportMetrics::default();
                 analyzer.analyze(&layout, &mut report_metrics);
@@ -155,7 +155,7 @@ impl Command {
                 let mut report_metrics = ReportMetrics::default();
                 analyzer.analyze(&optimized_layout, &mut report_metrics);
                 let report = Report::from(report_metrics);
-                let score = optimizer.score_layout(&optimized_layout);
+                let score = optimizer.score(&optimized_layout);
 
                 println!("Optimized Layout:");
                 println!("{optimized_layout}");

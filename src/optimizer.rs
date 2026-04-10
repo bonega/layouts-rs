@@ -429,7 +429,7 @@ impl Optimizer {
             best_layout.shuffle(&mut rng, 100);
         }
 
-        let mut best_score = self.get_score(&best_layout.layout);
+        let mut best_score = self.score(&best_layout.layout);
 
         for iteration in 0..iterations {
             let mut candidate = best_layout.clone();
@@ -438,10 +438,10 @@ impl Optimizer {
                 candidate.perturb(&mut rng, 10);
             }
 
-            let mut current_score = self.get_score(&candidate.layout);
+            let mut current_score = self.score(&candidate.layout);
 
             while let Some(best_iteration_score) = candidate.try_improve(|layout| {
-                let score = self.get_score(layout);
+                let score = self.score(layout);
                 (score < current_score).then_some(score)
             }) {
                 current_score = best_iteration_score;
@@ -456,12 +456,8 @@ impl Optimizer {
         *best_layout.layout()
     }
 
-    fn get_score<const C: usize, const R: usize>(&self, layout: &Layout<C, R>) -> f64 {
+    pub fn score<const C: usize, const R: usize>(&self, layout: &Layout<C, R>) -> f64 {
         self.get_stats(layout).score(&self.targets)
-    }
-
-    pub fn score_layout<const C: usize, const R: usize>(&self, layout: &Layout<C, R>) -> f64 {
-        self.get_score(layout)
     }
 
     fn get_stats<const C: usize, const R: usize>(&self, layout: &Layout<C, R>) -> OptimizerStats {
