@@ -281,11 +281,6 @@ impl Metrics for OptimizerMetrics {
     }
 }
 
-pub struct Optimizer {
-    analyzer: Analyzer,
-    targets: Targets,
-}
-
 #[derive(Clone)]
 struct OptimizableLayout {
     initial_layout: Layout,
@@ -405,12 +400,30 @@ pub struct RunOptions {
     pub shuffle: bool,
 }
 
-impl Optimizer {
+pub trait Optimizer {
+    fn optimize(&self, layout: &Layout, opts: RunOptions) -> Layout;
+    fn score(&self, layout: &Layout) -> f64;
+}
+
+pub struct HillClimbOptimizer {
+    analyzer: Analyzer,
+    targets: Targets,
+}
+
+impl HillClimbOptimizer {
     pub fn new(analyzer: Analyzer, targets: Targets) -> Self {
         Self { analyzer, targets }
     }
 
-    pub fn optimize(&self, layout: &Layout, opts: RunOptions) -> Layout {
+    fn get_stats(&self, layout: &Layout) -> OptimizerStats {
+        let mut metrics = OptimizerMetrics::default();
+        self.analyzer.analyze(layout, &mut metrics);
+        OptimizerStats::from(metrics)
+    }
+}
+
+impl Optimizer for HillClimbOptimizer {
+    fn optimize(&self, layout: &Layout, opts: RunOptions) -> Layout {
         let mut rng: StdRng = if let Some(seed) = opts.seed {
             StdRng::seed_from_u64(seed)
         } else {
@@ -450,14 +463,8 @@ impl Optimizer {
         best_layout.layout().clone()
     }
 
-    pub fn score(&self, layout: &Layout) -> f64 {
+    fn score(&self, layout: &Layout) -> f64 {
         self.get_stats(layout).score(&self.targets)
-    }
-
-    fn get_stats(&self, layout: &Layout) -> OptimizerStats {
-        let mut metrics = OptimizerMetrics::default();
-        self.analyzer.analyze(layout, &mut metrics);
-        OptimizerStats::from(metrics)
     }
 }
 
@@ -481,7 +488,7 @@ mod optimizer_tests {
 
         let corpus = Corpus::new([("c".to_string(), 10.0)]);
         let analyzer = Analyzer::new(corpus);
-        let optimizer = Optimizer::new(
+        let optimizer = HillClimbOptimizer::new(
             analyzer,
             Targets {
                 effort: Target {

@@ -7,7 +7,7 @@ use layouts_rs::{
     config::Config,
     corpus::Corpus,
     layout::Layout,
-    optimizer::{self, Optimizer},
+    optimizer::{self, HillClimbOptimizer, Optimizer},
     report::{Report, ReportMetrics},
 };
 
@@ -142,7 +142,8 @@ impl Command {
 
                 let corpus = args.common.corpus();
                 let analyzer = Analyzer::new(corpus);
-                let optimizer = Optimizer::new(analyzer.clone(), config.optimization.targets);
+                let optimizer =
+                    HillClimbOptimizer::new(analyzer.clone(), config.optimization.targets);
                 let score = optimizer.score(&layout);
 
                 let mut report_metrics = ReportMetrics::default();
@@ -162,7 +163,8 @@ impl Command {
 
                 let corpus = args.common.corpus();
                 let analyzer = Analyzer::new(corpus);
-                let optimizer = Optimizer::new(analyzer.clone(), config.optimization.targets);
+                let optimizer =
+                    HillClimbOptimizer::new(analyzer.clone(), config.optimization.targets);
                 let optimized_layout = optimizer.optimize(&layout, args.run_options.clone().into());
 
                 let mut report_metrics = ReportMetrics::default();
