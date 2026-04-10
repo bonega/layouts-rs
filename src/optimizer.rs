@@ -460,6 +460,10 @@ impl Optimizer {
         self.get_stats(layout).score(&self.targets)
     }
 
+    pub fn score_layout<const C: usize, const R: usize>(&self, layout: &Layout<C, R>) -> f64 {
+        self.get_score(layout)
+    }
+
     fn get_stats<const C: usize, const R: usize>(&self, layout: &Layout<C, R>) -> OptimizerStats {
         let mut metrics = OptimizerMetrics::default();
         self.analyzer.analyze(layout, &mut metrics);
