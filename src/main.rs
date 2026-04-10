@@ -4,10 +4,10 @@ use clap::{Parser, Subcommand};
 
 use layouts_rs::{
     analyzer::Analyzer,
-    config::Config,
+    config::{Config, OptimizationConfig},
     corpus::Corpus,
     layout::Layout,
-    optimizer::{self, HillClimbOptimizer, Optimizer},
+    optimizer::{self, Algorithm, HillClimbOptimizer, Optimizer, SimulatedAnnealingOptimizer},
     report::{Report, ReportMetrics},
 };
 
@@ -142,8 +142,7 @@ impl Command {
 
                 let corpus = args.common.corpus();
                 let analyzer = Analyzer::new(corpus);
-                let optimizer =
-                    HillClimbOptimizer::new(analyzer.clone(), config.optimization.targets);
+                let optimizer = Self::select_optimizer(analyzer.clone(), &config.optimization);
                 let score = optimizer.score(&layout);
 
                 let mut report_metrics = ReportMetrics::default();
@@ -163,8 +162,7 @@ impl Command {
 
                 let corpus = args.common.corpus();
                 let analyzer = Analyzer::new(corpus);
-                let optimizer =
-                    HillClimbOptimizer::new(analyzer.clone(), config.optimization.targets);
+                let optimizer = Self::select_optimizer(analyzer.clone(), &config.optimization);
                 let optimized_layout = optimizer.optimize(&layout, args.run_options.clone().into());
 
                 let mut report_metrics = ReportMetrics::default();
@@ -179,6 +177,23 @@ impl Command {
             }
         }
         Ok(())
+    }
+
+    fn select_optimizer(
+        analyzer: Analyzer,
+        optimization: &OptimizationConfig,
+    ) -> Box<dyn Optimizer> {
+        match optimization.algorithm {
+            Algorithm::HillClimb => Box::new(HillClimbOptimizer::new(
+                analyzer,
+                optimization.targets.clone(),
+            )),
+            Algorithm::SimulatedAnnealing => Box::new(SimulatedAnnealingOptimizer::new(
+                analyzer,
+                optimization.targets.clone(),
+                optimization.simulated_annealing.clone(),
+            )),
+        }
     }
 }
 

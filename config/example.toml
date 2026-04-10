@@ -25,6 +25,15 @@ finger_effort = [
 9 = [1, 9]
 10 = [1, 10]
 
+[optimization]
+algorithm = "simulated_annealing"
+
+[optimization.simulated_annealing]
+init_temp = 150.0
+cooling = 0.998
+key_switches = 2
+stall_accepted = 5000
+
 [optimization.targets]
 effort = { value = 0.0, weight = 1.0, scale = 50.0 }
 pinky_off_home = { value = 0.0, weight = 1.0, scale = 1.0 }

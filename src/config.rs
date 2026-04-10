@@ -3,7 +3,11 @@ use std::path::Path;
 
 use serde::{Deserialize, de::Error};
 
-use crate::{layout, matrix::Matrix, optimizer::Targets};
+use crate::{
+    layout,
+    matrix::Matrix,
+    optimizer::{Algorithm, SimulatedAnnealingConfig, Targets},
+};
 
 #[derive(Deserialize)]
 pub struct Config {
@@ -11,9 +15,11 @@ pub struct Config {
     pub optimization: OptimizationConfig,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct OptimizationConfig {
+    pub algorithm: Algorithm,
     pub targets: Targets,
+    pub simulated_annealing: SimulatedAnnealingConfig,
 }
 
 impl Config {

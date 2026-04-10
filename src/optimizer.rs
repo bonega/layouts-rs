@@ -15,7 +15,24 @@ use crate::{
     swaps::SwapMove,
 };
 
-#[derive(Deserialize, Default)]
+const MAX_PERTURB_ATTEMPTS: usize = 30;
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum Algorithm {
+    HillClimb,
+    SimulatedAnnealing,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct SimulatedAnnealingConfig {
+    pub init_temp: f64,
+    pub cooling: f64,
+    pub key_switches: usize,
+    pub stall_accepted: usize,
+}
+
+#[derive(Deserialize, Default, Clone)]
 pub struct Targets {
     pub effort: Target,
     pub left_hand_usage: Target,
@@ -33,7 +50,7 @@ pub struct Targets {
     pub trigram_alternations: Target,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct Target {
     pub value: f64,
     pub weight: f64,
@@ -361,20 +378,17 @@ impl OptimizableLayout {
         }
     }
 
-    fn perturb<RNG: Rng + ?Sized>(&mut self, rng: &mut RNG, attempts: usize) {
-        let n = self.swap_moves.len();
-
-        if n == 0 {
-            return;
-        }
+    pub fn perturb<RNG: Rng + ?Sized>(&mut self, rng: &mut RNG, mut n: usize) {
+        let swaps_number = self.swap_moves.len();
+        n = n.min(swaps_number);
 
         let mut applied = 0;
-        for _ in 0..attempts {
-            if applied >= 2.max(n / 4) {
+        for _ in 0..MAX_PERTURB_ATTEMPTS {
+            if applied >= n {
                 break;
             }
 
-            let swap = &self.swap_moves[rng.next_u64() as usize % n];
+            let swap = &self.swap_moves[rng.next_u64() as usize % swaps_number];
             swap.apply(&mut self.layout);
 
             if let Some(max) = self.max_swapped
@@ -442,7 +456,7 @@ impl Optimizer for HillClimbOptimizer {
             let mut candidate = best_layout.clone();
 
             if iteration > 0 {
-                candidate.perturb(&mut rng, 10);
+                candidate.perturb(&mut rng, 2.max(candidate.swap_moves.len() / 4));
             }
 
             let mut current_score = self.score(&candidate.layout);
@@ -468,6 +482,108 @@ impl Optimizer for HillClimbOptimizer {
     }
 }
 
+pub struct SimulatedAnnealingOptimizer {
+    analyzer: Analyzer,
+    targets: Targets,
+    init_temp: f64,
+    cooling: f64,
+    stall_accepted: usize,
+    key_switches: usize,
+}
+
+impl SimulatedAnnealingOptimizer {
+    pub fn new(analyzer: Analyzer, targets: Targets, config: SimulatedAnnealingConfig) -> Self {
+        Self {
+            analyzer,
+            targets,
+            init_temp: config.init_temp,
+            cooling: config.cooling,
+            stall_accepted: config.stall_accepted,
+            key_switches: config.key_switches.max(1),
+        }
+    }
+
+    fn get_stats(&self, layout: &Layout) -> OptimizerStats {
+        let mut metrics = OptimizerMetrics::default();
+        self.analyzer.analyze(layout, &mut metrics);
+        OptimizerStats::from(metrics)
+    }
+}
+
+impl Optimizer for SimulatedAnnealingOptimizer {
+    fn optimize(&self, layout: &Layout, opts: RunOptions) -> Layout {
+        let mut rng: StdRng = if let Some(seed) = opts.seed {
+            StdRng::seed_from_u64(seed)
+        } else {
+            StdRng::from_rng(&mut rng())
+        };
+
+        let mut best_layout = OptimizableLayout::new(layout.clone(), opts.pinned, opts.max_swapped);
+
+        if opts.shuffle {
+            best_layout.shuffle(&mut rng, 100);
+        }
+
+        let mut best_score = self.score(&best_layout.layout);
+        let mut current = best_layout.clone();
+        let mut current_score = best_score;
+
+        let mut temp = self.init_temp.max(1e-9);
+        let mut stall = 0usize;
+
+        for _ in 0..opts.iterations {
+            if current.swap_moves.is_empty() {
+                break;
+            }
+
+            let mut candidate = current.clone();
+            candidate.perturb(&mut rng, self.key_switches);
+
+            let candidate_score = self.score(&candidate.layout);
+            let delta = candidate_score - current_score;
+
+            let accept = if delta <= 0.0 {
+                true
+            } else {
+                let prob = (-delta / temp).exp();
+                let random = rng.next_u64() as f64 / u64::MAX as f64;
+                random < prob
+            };
+
+            if accept {
+                if candidate_score < best_score {
+                    best_score = candidate_score;
+                    best_layout = candidate.clone();
+                }
+                current = candidate;
+                current_score = candidate_score;
+                stall = 0;
+            } else {
+                stall += 1;
+            }
+
+            temp *= self.cooling;
+
+            if stall >= self.stall_accepted {
+                break;
+            }
+        }
+
+        while let Some(new_score) = best_layout.try_improve(|layout| {
+            let score = self.score(layout);
+            (score < best_score).then_some(score)
+        }) {
+            best_score = new_score;
+        }
+
+        best_layout.layout().clone()
+    }
+
+    fn score(&self, layout: &Layout) -> f64 {
+        self.get_stats(layout).score(&self.targets)
+    }
+}
+
 #[cfg(test)]
 mod optimizer_tests {
     use super::*;
@@ -475,7 +591,7 @@ mod optimizer_tests {
     use assert2::check;
 
     #[test]
-    fn it_optimizes() {
+    fn it_optimizes_with_hill_climbing() {
         let layout = Layout::new(
             "ab\ncd",
             &Config {
@@ -508,6 +624,52 @@ mod optimizer_tests {
                 pinned: HashSet::new(),
                 max_swapped: None,
                 shuffle: false,
+            },
+        );
+
+        check!(optimized_layout.key_for('c').unwrap().effort == 1.0);
+    }
+
+    #[test]
+    fn it_optimizes_with_simulated_annealing() {
+        let layout = Layout::new(
+            "ab\ncd",
+            &Config {
+                finger_assignment: matrix!([[1, 2], [1, 2]]),
+                finger_effort: matrix!([[1.0, 100.0], [100.0, 100.0]]),
+                finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+            },
+        )
+        .unwrap();
+
+        let corpus = Corpus::new([("c".to_string(), 10.0)]);
+        let analyzer = Analyzer::new(corpus);
+        let optimizer = SimulatedAnnealingOptimizer::new(
+            analyzer,
+            Targets {
+                effort: Target {
+                    value: 0.0,
+                    weight: 1.0,
+                    scale: 1.0,
+                },
+                ..Default::default()
+            },
+            SimulatedAnnealingConfig {
+                key_switches: 2,
+                init_temp: 100.0,
+                cooling: 0.95,
+                stall_accepted: 100,
+            },
+        );
+
+        let optimized_layout = optimizer.optimize(
+            &layout,
+            RunOptions {
+                iterations: 1000,
+                seed: Some(42),
+                pinned: HashSet::new(),
+                max_swapped: None,
+                shuffle: true,
             },
         );
 
