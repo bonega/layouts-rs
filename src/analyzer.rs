@@ -52,11 +52,7 @@ impl Analyzer {
         Self { corpus }
     }
 
-    pub fn analyze<const C: usize, const R: usize>(
-        &self,
-        layout: &Layout<C, R>,
-        metrics: &mut impl Metrics,
-    ) {
+    pub fn analyze(&self, layout: &Layout, metrics: &mut impl Metrics) {
         let lookup: KeyLookup = layout.keys().collect();
 
         metrics.collect_metric(Metric::CorpusLenght(self.corpus.chars_length));

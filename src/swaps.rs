@@ -1,4 +1,4 @@
-use crate::layout::{Layout, Pos};
+use crate::{layout::Layout, matrix::Pos};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SwapMove(pub Vec<(Pos, Pos)>);
@@ -54,7 +54,7 @@ impl SwapMove {
         moves
     }
 
-    pub fn apply<const C: usize, const R: usize>(&self, layout: &mut Layout<C, R>) {
+    pub fn apply(&self, layout: &mut Layout) {
         for &(p1, p2) in &self.0 {
             layout.swap_chars(&p1, &p2);
         }
@@ -95,10 +95,10 @@ mod single_moves_tests {
 
     #[test]
     fn it_applies() {
-        let mut layout = Layout::<2, 2>::new(
-            "abcd",
-            vec![vec![1, 2], vec![1, 2]],
-            vec![vec![1.0, 2.0], vec![3.0, 4.0]],
+        let mut layout = Layout::new(
+            "ab\ncd",
+            matrix!([[1, 2], [1, 2]]),
+            matrix!([[1.0, 2.0], [3.0, 4.0]]),
             [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
         )
         .unwrap();
@@ -112,10 +112,10 @@ mod single_moves_tests {
 
     #[test]
     fn it_reverts_when_applied_twice() {
-        let original = Layout::<2, 2>::new(
-            "abcd",
-            vec![vec![1, 2], vec![1, 2]],
-            vec![vec![1.0, 2.0], vec![3.0, 4.0]],
+        let original = Layout::new(
+            "ab\ncd",
+            matrix!([[1, 2], [1, 2]]),
+            matrix!([[1.0, 2.0], [3.0, 4.0]]),
             [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
         )
         .unwrap();
@@ -219,10 +219,10 @@ mod column_moves_tests {
 
     #[test]
     fn it_applies() {
-        let mut layout = Layout::<2, 2>::new(
-            "abcd",
-            vec![vec![1, 2], vec![1, 2]],
-            vec![vec![1.0, 2.0], vec![3.0, 4.0]],
+        let mut layout = Layout::new(
+            "ab\ncd",
+            matrix!([[1, 2], [1, 2]]),
+            matrix!([[1.0, 2.0], [3.0, 4.0]]),
             [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
         )
         .unwrap();
@@ -238,10 +238,10 @@ mod column_moves_tests {
 
     #[test]
     fn it_reverts_when_applied_twice() {
-        let original = Layout::<2, 2>::new(
-            "abcd",
-            vec![vec![1, 2], vec![1, 2]],
-            vec![vec![1.0, 2.0], vec![3.0, 4.0]],
+        let original = Layout::new(
+            "ab\ncd",
+            matrix!([[1, 2], [1, 2]]),
+            matrix!([[1.0, 2.0], [3.0, 4.0]]),
             [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
         )
         .unwrap();
@@ -347,10 +347,10 @@ mod row_moves_tests {
 
     #[test]
     fn it_applies() {
-        let mut layout = Layout::<2, 2>::new(
-            "abcd",
-            vec![vec![1, 2], vec![1, 2]],
-            vec![vec![1.0, 2.0], vec![3.0, 4.0]],
+        let mut layout = Layout::new(
+            "ab\ncd",
+            matrix!([[1, 2], [1, 2]]),
+            matrix!([[1.0, 2.0], [3.0, 4.0]]),
             [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
         )
         .unwrap();
@@ -366,10 +366,10 @@ mod row_moves_tests {
 
     #[test]
     fn it_reverts_when_applied_twice() {
-        let original = Layout::<2, 2>::new(
-            "abcd",
-            vec![vec![1, 2], vec![1, 2]],
-            vec![vec![1.0, 2.0], vec![3.0, 4.0]],
+        let original = Layout::new(
+            "ab\ncd",
+            matrix!([[1, 2], [1, 2]]),
+            matrix!([[1.0, 2.0], [3.0, 4.0]]),
             [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
         )
         .unwrap();

@@ -2,9 +2,12 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, de::Error};
 
-use crate::{layout::Pos, optimizer::Targets};
+use crate::{
+    matrix::{Matrix, Pos},
+    optimizer::Targets,
+};
 
 #[derive(Deserialize)]
 pub struct Config {
@@ -14,8 +17,8 @@ pub struct Config {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct LayoutConfig {
-    pub finger_assignment: Vec<Vec<u8>>,
-    pub finger_effort: Vec<Vec<f64>>,
+    pub finger_assignment: Matrix<u8>,
+    pub finger_effort: Matrix<f64>,
     #[serde(deserialize_with = "deserialize_finger_home_positions")]
     pub finger_home_positions: HashMap<u8, Pos>,
 }
@@ -41,4 +44,17 @@ where
         .into_iter()
         .map(|(k, [row, col])| (k, Pos::new(row, col)))
         .collect())
+}
+
+impl<'de, T> Deserialize<'de> for Matrix<T>
+where
+    T: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let data: Vec<Vec<T>> = Vec::deserialize(deserializer)?;
+        Self::new(data).map_err(D::Error::custom)
+    }
 }

@@ -9,7 +9,8 @@ use serde::Deserialize;
 
 use crate::{
     analyzer::{Analyzer, Metric, Metrics},
-    layout::{FingerKind, Hand, Layout, Pos},
+    layout::{FingerKind, Hand, Layout},
+    matrix::Pos,
     ngrams::{BigramKind, TrigramKind},
     swaps::SwapMove,
 };
@@ -286,19 +287,15 @@ pub struct Optimizer {
 }
 
 #[derive(Clone)]
-struct OptimizableLayout<const C: usize, const R: usize> {
-    initial_layout: Layout<C, R>,
-    layout: Layout<C, R>,
+struct OptimizableLayout {
+    initial_layout: Layout,
+    layout: Layout,
     max_swapped: Option<usize>,
     swap_moves: Arc<Vec<SwapMove>>,
 }
 
-impl<const C: usize, const R: usize> OptimizableLayout<C, R> {
-    pub fn new(
-        layout: Layout<C, R>,
-        pinned_chars: &HashSet<char>,
-        max_swapped: Option<usize>,
-    ) -> Self {
+impl OptimizableLayout {
+    pub fn new(layout: Layout, pinned_chars: &HashSet<char>, max_swapped: Option<usize>) -> Self {
         let positions: Vec<Pos> = layout
             .keys()
             .filter(|key| !pinned_chars.contains(&key.ch))
@@ -307,7 +304,7 @@ impl<const C: usize, const R: usize> OptimizableLayout<C, R> {
         let swap_moves = Arc::new(SwapMove::all_moves(&positions));
 
         Self {
-            initial_layout: layout,
+            initial_layout: layout.clone(),
             layout,
             max_swapped,
             swap_moves,
@@ -318,7 +315,7 @@ impl<const C: usize, const R: usize> OptimizableLayout<C, R> {
         Self::diff_between(&self.layout, &self.initial_layout)
     }
 
-    fn diff_between(layout: &Layout<C, R>, initial_layout: &Layout<C, R>) -> usize {
+    fn diff_between(layout: &Layout, initial_layout: &Layout) -> usize {
         layout
             .keys()
             .zip(initial_layout.keys())
@@ -326,22 +323,19 @@ impl<const C: usize, const R: usize> OptimizableLayout<C, R> {
             .count()
     }
 
-    fn try_improve(
-        &mut self,
-        score_check: impl Fn(&Layout<C, R>) -> Option<f64> + Sync,
-    ) -> Option<f64> {
-        let initial_layout = self.initial_layout;
-        let current_layout = self.layout;
+    fn try_improve(&mut self, score_check: impl Fn(&Layout) -> Option<f64> + Sync) -> Option<f64> {
+        let initial_layout = &self.initial_layout;
+        let current_layout = &self.layout;
 
         let (score, best_swap) = self
             .swap_moves
             .par_iter()
             .filter_map(|swap_move| {
-                let mut candidate_layout = current_layout;
+                let mut candidate_layout = current_layout.clone();
                 swap_move.apply(&mut candidate_layout);
 
                 let score = if let Some(max) = self.max_swapped {
-                    if Self::diff_between(&candidate_layout, &initial_layout) <= max {
+                    if Self::diff_between(&candidate_layout, initial_layout) <= max {
                         score_check(&candidate_layout)
                     } else {
                         None
@@ -398,7 +392,7 @@ impl<const C: usize, const R: usize> OptimizableLayout<C, R> {
         }
     }
 
-    fn layout(&self) -> &Layout<C, R> {
+    fn layout(&self) -> &Layout {
         &self.layout
     }
 }
@@ -408,22 +402,22 @@ impl Optimizer {
         Self { analyzer, targets }
     }
 
-    pub fn optimize<const C: usize, const R: usize>(
+    pub fn optimize(
         &self,
-        layout: &Layout<C, R>,
+        layout: &Layout,
         iterations: usize,
         seed: Option<u64>,
         pinned_chars: &HashSet<char>,
         max_swapped: Option<usize>,
         shuffle: bool,
-    ) -> Layout<C, R> {
+    ) -> Layout {
         let mut rng: StdRng = if let Some(seed) = seed {
             StdRng::seed_from_u64(seed)
         } else {
             StdRng::from_rng(&mut rng())
         };
 
-        let mut best_layout = OptimizableLayout::new(*layout, pinned_chars, max_swapped);
+        let mut best_layout = OptimizableLayout::new(layout.clone(), pinned_chars, max_swapped);
 
         if shuffle {
             best_layout.shuffle(&mut rng, 100);
@@ -453,14 +447,14 @@ impl Optimizer {
             }
         }
 
-        *best_layout.layout()
+        best_layout.layout().clone()
     }
 
-    pub fn score<const C: usize, const R: usize>(&self, layout: &Layout<C, R>) -> f64 {
+    pub fn score(&self, layout: &Layout) -> f64 {
         self.get_stats(layout).score(&self.targets)
     }
 
-    fn get_stats<const C: usize, const R: usize>(&self, layout: &Layout<C, R>) -> OptimizerStats {
+    fn get_stats(&self, layout: &Layout) -> OptimizerStats {
         let mut metrics = OptimizerMetrics::default();
         self.analyzer.analyze(layout, &mut metrics);
         OptimizerStats::from(metrics)
@@ -475,10 +469,10 @@ mod optimizer_tests {
 
     #[test]
     fn it_optimizes() {
-        let layout = Layout::<2, 2>::new(
-            "abcd",
-            vec![vec![1, 2], vec![1, 2]],
-            vec![vec![1.0, 100.0], vec![100.0, 100.0]],
+        let layout = Layout::new(
+            "ab\ncd",
+            matrix!([[1, 2], [1, 2]]),
+            matrix!([[1.0, 100.0], [100.0, 100.0]]),
             [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
         )
         .unwrap();
@@ -509,11 +503,11 @@ mod optimizable_layout_tests {
     use super::*;
     use assert2::check;
 
-    fn make_layout() -> Layout<2, 2> {
-        Layout::<2, 2>::new(
-            "abcd",
-            vec![vec![1, 2], vec![1, 2]],
-            vec![vec![1.0, 50.0], vec![100.0, 200.0]],
+    fn make_layout() -> Layout {
+        Layout::new(
+            "ab\ncd",
+            matrix!([[1, 2], [1, 2]]),
+            matrix!([[1.0, 50.0], [100.0, 200.0]]),
             [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
         )
         .unwrap()
@@ -672,7 +666,7 @@ mod optimizable_layout_tests {
         check!(before != after);
     }
 
-    fn layout_effort_score<const C: usize, const R: usize>(layout: &Layout<C, R>) -> f64 {
+    fn layout_effort_score(layout: &Layout) -> f64 {
         layout.keys().map(|k| k.effort).sum()
     }
 }

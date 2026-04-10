@@ -1,19 +1,9 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt;
 
+use crate::matrix::{Matrix, Pos};
+
 const NONE_CHAR: char = '_';
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Pos {
-    pub r: usize,
-    pub c: usize,
-}
-
-impl Pos {
-    pub fn new(r: usize, c: usize) -> Self {
-        Self { r, c }
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Key {
@@ -119,59 +109,72 @@ pub enum FingerKind {
     Thumb,
 }
 
-#[derive(Clone, Copy)]
-pub struct Layout<const ROWS: usize = 3, const COLUMNS: usize = 12> {
-    keys: [[Option<Key>; COLUMNS]; ROWS],
+#[derive(Clone)]
+pub struct Layout {
+    keys: Matrix<Option<Key>>,
 }
 
-impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
+impl Layout {
     pub fn new(
         definition: &str,
-        finger_assignment: Vec<Vec<u8>>,
-        finger_effort: Vec<Vec<f64>>,
+        finger_assignment: Matrix<u8>,
+        finger_effort: Matrix<f64>,
         finger_home_positions: HashMap<u8, Pos>,
     ) -> anyhow::Result<Self> {
-        let definition: Vec<Vec<char>> = definition
-            .chars()
-            .filter(|c| !c.is_whitespace())
-            .collect::<Vec<char>>()
-            .chunks(COLUMNS)
-            .map(|chunk| chunk.to_vec())
-            .collect();
+        let definition = Matrix::new(
+            definition
+                .lines()
+                .map(str::trim)
+                .filter(|line| !line.is_empty())
+                .map(|line| line.chars().filter(|c| !c.is_whitespace()).collect())
+                .collect(),
+        )?;
 
-        Self::check_matrix("definition", &definition)?;
-        Self::check_matrix("finger assignment", &finger_assignment)?;
-        Self::check_matrix("finger effort", &finger_effort)?;
+        Self::check_matrix("finger assignment", &definition, &finger_assignment)?;
+        Self::check_matrix("finger effort", &definition, &finger_effort)?;
         Self::check_finger_home_positions(&definition, &finger_assignment, &finger_home_positions)?;
 
-        let mut keys = Self::default_keys();
-        for (row, row_chars) in definition.iter().enumerate() {
-            for (column, &ch) in row_chars.iter().enumerate() {
-                if finger_assignment[row][column] == 0 || ch == NONE_CHAR {
+        let mut keys = Matrix::filled(definition.rows, definition.columns, None);
+
+        for r in 0..definition.rows {
+            for c in 0..definition.columns {
+                let pos = Pos::new(r, c);
+
+                let ch = *definition.get(&pos).unwrap();
+                let finger_index = *finger_assignment.get(&pos).unwrap();
+
+                if finger_index == 0 || ch == NONE_CHAR {
                     continue;
                 }
 
-                let finger = Finger::from(finger_assignment[row][column]);
-                let finger_value: u8 = finger.into();
-                let pos = Pos::new(row, column);
-                let effort = finger_effort[row][column];
-                let homerow = finger_home_positions
-                    .get(&finger_value)
-                    .is_some_and(|hp| hp.r == row && hp.c == column);
+                let finger = Finger::from(finger_index);
+                let effort = *finger_effort.get(&pos).unwrap();
+                let finger_home = finger_home_positions
+                    .get(&finger.into())
+                    .is_some_and(|hp| hp.r == r && hp.c == c);
+                let key = Key::new(ch, finger, pos, effort, finger_home);
 
-                keys[row][column] = Some(Key::new(ch, finger, pos, effort, homerow));
+                *keys.get_mut(&pos).unwrap() = Some(key);
             }
         }
 
         Ok(Self { keys })
     }
 
-    fn check_matrix<T>(matrix_name: &str, matrix: &[Vec<T>]) -> anyhow::Result<()> {
-        if matrix.len() != ROWS || matrix.iter().any(|row| row.len() != COLUMNS) {
+    fn check_matrix<T, Z>(
+        matrix_name: &str,
+        matrix_to_check: &Matrix<T>,
+        matrix_reference: &Matrix<Z>,
+    ) -> anyhow::Result<()> {
+        if matrix_to_check.rows != matrix_reference.rows
+            || matrix_to_check.columns != matrix_reference.columns
+        {
             anyhow::bail!(
-                "expected {matrix_name} to have {ROWS} rows and {COLUMNS} columns, received {} rows and {} columns",
-                matrix.len(),
-                matrix.iter().map(|row| row.len()).max().unwrap_or(0)
+                "expected {matrix_name} to have {} rows and {} columns, received {} rows and {} columns",
+                matrix_reference.rows,
+                matrix_reference.columns,
+                matrix_to_check.rows,
+                matrix_to_check.columns
             );
         }
 
@@ -179,48 +182,62 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
     }
 
     fn check_finger_home_positions(
-        definition: &[Vec<char>],
-        finger_assignment: &[Vec<u8>],
+        definition: &Matrix<char>,
+        finger_assignment: &Matrix<u8>,
         finger_home_positions: &HashMap<u8, Pos>,
     ) -> anyhow::Result<()> {
-        let fingers_in_layout: HashSet<u8> = finger_assignment
-            .iter()
-            .flat_map(|row| row.iter().copied())
-            .collect();
+        let mut positions_by_finger: HashMap<u8, Vec<(Pos, char)>> = HashMap::new();
+        for r in 0..finger_assignment.rows {
+            for c in 0..finger_assignment.columns {
+                let pos = Pos::new(r, c);
 
-        for (&finger_value, pos) in finger_home_positions {
-            if pos.r >= finger_assignment.len() || pos.c >= finger_assignment[pos.r].len() {
-                anyhow::bail!("finger home position {pos:?} is out of bounds");
-            }
+                let f = *finger_assignment
+                    .get(&pos)
+                    .ok_or_else(|| anyhow::anyhow!("finger assignment out of bounds at {pos}"))?;
 
-            let finger_at_pos = finger_assignment[pos.r][pos.c];
-            if finger_at_pos != finger_value {
-                anyhow::bail!("finger home position {pos:?} does not match finger {finger_value}");
+                if f == 0 {
+                    continue;
+                }
+
+                let ch = *definition
+                    .get(&pos)
+                    .ok_or_else(|| anyhow::anyhow!("definition out of bounds at {pos}"))?;
+
+                positions_by_finger
+                    .entry(f)
+                    .or_default()
+                    .push((Pos::new(r, c), ch));
             }
         }
 
-        for finger_value in &fingers_in_layout {
-            if *finger_value != 0 && !finger_home_positions.contains_key(finger_value) {
+        for (&finger_value, pos) in finger_home_positions {
+            let actual = *finger_assignment
+                .get(pos)
+                .ok_or_else(|| anyhow::anyhow!("home position out of bounds at {pos}"))?;
+            if actual != finger_value {
+                anyhow::bail!("finger home position at {pos} does not match finger {finger_value}");
+            }
+        }
+
+        for &finger_value in positions_by_finger.keys() {
+            if !finger_home_positions.contains_key(&finger_value) {
                 anyhow::bail!("finger {finger_value} does not have a home position");
             }
         }
 
-        for (&finger_value, home) in finger_home_positions.iter() {
-            if definition[home.r][home.c] != NONE_CHAR {
+        for (&finger_value, home_pos) in finger_home_positions {
+            let home_char = *definition
+                .get(home_pos)
+                .ok_or_else(|| anyhow::anyhow!("home position out of bounds at {home_pos}"))?;
+            if home_char != NONE_CHAR {
                 continue;
             }
 
-            for (r, row) in finger_assignment.iter().enumerate() {
-                for (c, &f) in row.iter().enumerate() {
-                    if f == finger_value
-                        && (r != home.r || c != home.c)
-                        && definition[r][c] != NONE_CHAR
-                    {
+            if let Some(positions) = positions_by_finger.get(&finger_value) {
+                for (pos, ch) in positions {
+                    if (pos.r != home_pos.r || pos.c != home_pos.c) && *ch != NONE_CHAR {
                         anyhow::bail!(
-                            "finger {finger_value} has empty home at ({}, {}) but non-empty key '{}' at ({r}, {c})",
-                            home.r,
-                            home.c,
-                            definition[r][c]
+                            "finger {finger_value} has empty home at {home_pos} but non-empty key '{ch}' at {pos}",
                         );
                     }
                 }
@@ -230,29 +247,20 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
         Ok(())
     }
 
-    pub fn char_at(&self, position: &Pos) -> Option<char> {
-        self.key_at(position).map(|key| key.ch)
+    pub fn char_at(&self, pos: &Pos) -> Option<char> {
+        self.key_at(pos).map(|key| key.ch)
     }
 
-    pub fn key_at(&self, position: &Pos) -> Option<&Key> {
-        if position.r >= ROWS || position.c >= COLUMNS {
-            return None;
-        }
-        self.keys[position.r][position.c].as_ref()
+    pub fn key_at(&self, pos: &Pos) -> Option<&Key> {
+        self.keys.get(pos).and_then(|k| k.as_ref())
     }
 
     pub fn key_for(&self, ch: char) -> Option<&Key> {
-        (0..ROWS)
-            .flat_map(|row| (0..COLUMNS).map(move |col| (row, col)))
-            .find_map(|(row, col)| self.keys[row][col].as_ref().filter(|key| key.ch == ch))
+        self.keys().find(|key| key.ch == ch)
     }
 
-    pub fn set_char(&mut self, position: &Pos, ch: char) {
-        if position.r >= ROWS || position.c >= COLUMNS {
-            return;
-        }
-
-        if let Some(key) = self.keys[position.r][position.c].as_mut() {
+    pub fn set_char(&mut self, pos: &Pos, ch: char) {
+        if let Some(Some(key)) = self.keys.get_mut(pos) {
             key.ch = ch;
         }
     }
@@ -269,36 +277,25 @@ impl<const ROWS: usize, const COLUMNS: usize> Layout<ROWS, COLUMNS> {
         self.set_char(pos2, ch1);
     }
 
-    fn default_keys() -> [[Option<Key>; COLUMNS]; ROWS] {
-        [[None; COLUMNS]; ROWS]
-    }
-
     pub fn keys(&self) -> impl Iterator<Item = &Key> {
         self.keys
-            .iter()
+            .rows_iter()
             .flat_map(|row| row.iter().filter_map(|key| key.as_ref()))
     }
 }
 
-impl<const ROWS: usize, const COLUMNS: usize> Default for Layout<ROWS, COLUMNS> {
-    fn default() -> Self {
-        Self {
-            keys: Self::default_keys(),
-        }
-    }
-}
-
-impl<const ROWS: usize, const COLUMNS: usize> std::fmt::Display for Layout<ROWS, COLUMNS> {
+impl fmt::Display for Layout {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for row in self.keys.iter() {
-            let left = row[..6]
+        let split = self.keys.columns / 2;
+        for row in self.keys.rows_iter() {
+            let left = row[..split]
                 .iter()
-                .map(|k| k.map(|kk| kk.ch).unwrap_or('_').to_string())
+                .map(|k| k.map(|kk| kk.ch).unwrap_or(NONE_CHAR).to_string())
                 .collect::<Vec<_>>()
                 .join(" ");
-            let right = row[6..]
+            let right = row[split..]
                 .iter()
-                .map(|k| k.map(|kk| kk.ch).unwrap_or('_').to_string())
+                .map(|k| k.map(|kk| kk.ch).unwrap_or(NONE_CHAR).to_string())
                 .collect::<Vec<_>>()
                 .join(" ");
             writeln!(f, "  {}   {}", left, right)?;
@@ -314,23 +311,23 @@ pub mod fixtures {
     use super::*;
 
     #[fixture]
-    pub fn qwerty() -> Layout<3, 12> {
+    pub fn qwerty() -> Layout {
         Layout::new(
             r#"
             _ q w e r t   y u i o p _
             " a s d f g   h j k l ; '
             _ z x c v b   n m , . / _
             "#,
-            vec![
-                vec![1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
-                vec![1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
-                vec![1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
-            ],
-            vec![
-                vec![3.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 3.0],
-                vec![2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0],
-                vec![3.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 3.0],
-            ],
+            matrix!([
+                [1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
+                [1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
+                [1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
+            ]),
+            matrix!([
+                [3.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 3.0],
+                [2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0],
+                [3.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 3.0],
+            ]),
             [
                 (1, pos!(1, 1)),
                 (2, pos!(1, 2)),
@@ -416,93 +413,83 @@ mod tests {
         #[test]
         fn it_builds_from_configuration() {
             check!(
-                Layout::<2, 2>::new(
-                    "abcd",
-                    vec![vec![1, 2], vec![1, 2]],
-                    vec![vec![1.0, 1.0], vec![1.0, 1.0]],
+                Layout::new(
+                    "ab\ncd",
+                    matrix!([[1, 2], [1, 2]]),
+                    matrix!([[1.0, 1.0], [1.0, 1.0]]),
                     [(1, pos!(0, 0)), (2, pos!(0, 1))].into()
                 )
                 .is_ok()
             );
             check!(
-                Layout::<2, 3>::new(
-                    "abcdef",
-                    vec![vec![1, 2, 3], vec![1, 2, 3]],
-                    vec![vec![1.0, 1.0, 1.0], vec![1.0, 1.0, 1.0]],
+                Layout::new(
+                    "abc\ndef",
+                    matrix!([[1, 2, 3], [1, 2, 3]]),
+                    matrix!([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]),
                     [(1, pos!(0, 0)), (2, pos!(0, 1)), (3, pos!(0, 2))].into()
                 )
                 .is_ok()
             );
             check!(
-                Layout::<2, 2>::new(
-                    "aaaa",
-                    vec![vec![1, 2], vec![1, 2]],
-                    vec![vec![1.0, 1.0], vec![1.0, 1.0]],
+                Layout::new(
+                    "aa\naa",
+                    matrix!([[1, 2], [1, 2]]),
+                    matrix!([[1.0, 1.0], [1.0, 1.0]]),
                     [(1, pos!(0, 0)), (2, pos!(0, 1))].into()
                 )
                 .is_ok()
             );
 
             check!(
-                Layout::<2, 2>::new(
+                Layout::new(
                     "abcde",
-                    vec![vec![1, 2], vec![1, 2]],
-                    vec![vec![1.0, 1.0], vec![1.0, 1.0]],
+                    matrix!([[1, 2], [1, 2]]),
+                    matrix!([[1.0, 1.0], [1.0, 1.0]]),
                     [(1, pos!(0, 0)), (2, pos!(0, 1))].into()
                 )
                 .is_err()
             );
             check!(
-                Layout::<2, 2>::new(
-                    "abcd",
-                    vec![vec![1, 2], vec![1, 2, 3]],
-                    vec![vec![1.0, 1.0], vec![1.0, 1.0]],
-                    [(1, pos!(0, 0)), (2, pos!(0, 1))].into()
-                )
-                .is_err()
-            );
-
-            check!(
-                Layout::<2, 2>::new(
-                    "abcd",
-                    vec![vec![1, 2], vec![1, 2]],
-                    vec![vec![1.0, 1.0], vec![1.0]],
+                Layout::new(
+                    "ab\ncd",
+                    matrix!([[1, 2, 3], [1, 2, 3]]),
+                    matrix!([[1.0, 1.0], [1.0, 1.0]]),
                     [(1, pos!(0, 0)), (2, pos!(0, 1))].into()
                 )
                 .is_err()
             );
             check!(
-                Layout::<2, 2>::new(
-                    "abcd",
-                    vec![vec![1, 2], vec![1, 2]],
-                    vec![vec![1.0, 1.0], vec![1.0, 1.0]],
+                Layout::new(
+                    "ab\ncd",
+                    matrix!([[1, 2], [1, 2]]),
+                    matrix!([[1.0, 1.0], [1.0, 1.0]]),
                     [].into()
                 )
                 .is_err()
             );
             check!(
-                Layout::<2, 2>::new(
-                    "abcd",
-                    vec![vec![1, 2], vec![1, 2]],
-                    vec![vec![1.0, 1.0], vec![1.0, 1.0]],
+                Layout::new(
+                    "ab\ncd",
+                    matrix!([[1, 2], [1, 2]]),
+                    matrix!([[1.0, 1.0], [1.0, 1.0]]),
                     [(1, pos!(0, 0)), (2, pos!(0, 0))].into()
                 )
                 .is_err()
             );
             check!(
-                Layout::<2, 2>::new(
-                    "abcd",
-                    vec![vec![1, 2], vec![1, 2]],
-                    vec![vec![1.0, 1.0], vec![1.0, 1.0]],
+                Layout::new(
+                    "ab\ncd",
+                    matrix!([[1, 2], [1, 2]]),
+                    matrix!([[1.0, 1.0], [1.0, 1.0]]),
                     [(1, pos!(0, 0)), (2, pos!(1, 0))].into()
                 )
                 .is_err()
             );
             check!(
-                Layout::<2, 2>::new(
-                    "_bcd",
-                    vec![vec![1, 2], vec![1, 2]],
-                    vec![vec![1.0, 1.0], vec![1.0, 1.0]],
+                Layout::new(
+                    "_b\ncd",
+                    matrix!([[1, 2], [1, 2]]),
+                    matrix!([[1.0, 1.0], [1.0, 1.0]]),
                     [(1, pos!(0, 0)), (2, pos!(0, 1))].into()
                 )
                 .is_err()
@@ -511,10 +498,10 @@ mod tests {
 
         #[test]
         fn it_builds_with_underscores_as_none() {
-            let layout = Layout::<2, 3>::new(
-                "_ab_cd",
-                vec![vec![1, 1, 2], vec![1, 1, 2]],
-                vec![vec![1.0, 1.0, 1.0], vec![1.0, 1.0, 1.0]],
+            let layout = Layout::new(
+                "_ab\n_cd",
+                matrix!([[1, 1, 2], [1, 1, 2]]),
+                matrix!([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]),
                 [(1, pos!(0, 1)), (2, pos!(0, 2))].into(),
             )
             .unwrap();
@@ -531,13 +518,13 @@ mod tests {
         #[test]
         fn it_builds_from_string_normalizing() {
             check!(
-                Layout::<2, 3>::new(
+                Layout::new(
                     r#"
             a b c
             d e f
             "#,
-                    vec![vec![1, 2, 3], vec![1, 2, 3]],
-                    vec![vec![1.0, 1.0, 1.0], vec![1.0, 1.0, 1.0]],
+                    matrix!([[1, 2, 3], [1, 2, 3]]),
+                    matrix!([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]),
                     [(1, pos!(0, 0)), (2, pos!(0, 1)), (3, pos!(0, 2))].into()
                 )
                 .is_ok()
@@ -546,10 +533,10 @@ mod tests {
 
         #[test]
         fn it_returns_key_by_pos() {
-            let layout = Layout::<2, 3>::new(
-                "abcdef",
-                vec![vec![1, 2, 3], vec![1, 2, 3]],
-                vec![vec![1.0, 1.0, 1.0], vec![2.0, 2.0, 2.0]],
+            let layout = Layout::new(
+                "abc\ndef",
+                matrix!([[1, 2, 3], [1, 2, 3]]),
+                matrix!([[1.0, 1.0, 1.0], [2.0, 2.0, 2.0]]),
                 [(1, pos!(0, 0)), (2, pos!(0, 1)), (3, pos!(0, 2))].into(),
             )
             .unwrap();
@@ -572,10 +559,10 @@ mod tests {
 
         #[test]
         fn it_returns_key_by_char() {
-            let layout = Layout::<2, 2>::new(
-                "abcd",
-                vec![vec![1, 2], vec![1, 2]],
-                vec![vec![1.0, 1.0], vec![1.0, 1.0]],
+            let layout = Layout::new(
+                "ab\ncd",
+                matrix!([[1, 2], [1, 2]]),
+                matrix!([[1.0, 1.0], [1.0, 1.0]]),
                 [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
             )
             .unwrap();
@@ -589,10 +576,10 @@ mod tests {
 
         #[test]
         fn it_returns_char_by_pos() {
-            let layout = Layout::<2, 2>::new(
-                "abcd",
-                vec![vec![1, 2], vec![1, 2]],
-                vec![vec![1.0, 1.0], vec![1.0, 1.0]],
+            let layout = Layout::new(
+                "ab\ncd",
+                matrix!([[1, 2], [1, 2]]),
+                matrix!([[1.0, 1.0], [1.0, 1.0]]),
                 [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
             )
             .unwrap();
@@ -607,10 +594,10 @@ mod tests {
 
         #[test]
         fn it_sets_char_for_key() {
-            let mut layout = Layout::<2, 2>::new(
-                "abcd",
-                vec![vec![1, 2], vec![1, 2]],
-                vec![vec![1.0, 1.0], vec![1.0, 1.0]],
+            let mut layout = Layout::new(
+                "ab\ncd",
+                matrix!([[1, 2], [1, 2]]),
+                matrix!([[1.0, 1.0], [1.0, 1.0]]),
                 [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
             )
             .unwrap();
@@ -621,10 +608,10 @@ mod tests {
 
         #[test]
         fn it_swaps_chars() {
-            let mut layout = Layout::<2, 2>::new(
-                "abcd",
-                vec![vec![1, 2], vec![1, 2]],
-                vec![vec![1.0, 1.0], vec![1.0, 1.0]],
+            let mut layout = Layout::new(
+                "ab\ncd",
+                matrix!([[1, 2], [1, 2]]),
+                matrix!([[1.0, 1.0], [1.0, 1.0]]),
                 [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
             )
             .unwrap();
@@ -636,10 +623,10 @@ mod tests {
 
         #[test]
         fn it_returns_keys() {
-            let layout = Layout::<2, 2>::new(
-                "abcd",
-                vec![vec![1, 2], vec![1, 2]],
-                vec![vec![1.0, 1.0], vec![1.0, 1.0]],
+            let layout = Layout::new(
+                "ab\ncd",
+                matrix!([[1, 2], [1, 2]]),
+                matrix!([[1.0, 1.0], [1.0, 1.0]]),
                 [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
             )
             .unwrap();

@@ -1,7 +1,16 @@
 #[cfg(test)]
 macro_rules! pos {
     ($row:expr, $col:expr) => {
-        crate::layout::Pos::new($row, $col)
+        crate::matrix::Pos::new($row, $col)
+    };
+}
+
+#[macro_export]
+macro_rules! matrix {
+    ([$([$($x:expr),* $(,)?]),+ $(,)?]) => {
+        $crate::matrix::Matrix::new(vec![
+            $(vec![$($x),*]),+
+        ]).unwrap()
     };
 }
 
@@ -52,6 +61,7 @@ pub mod analyzer;
 pub mod config;
 pub mod corpus;
 pub mod layout;
+pub mod matrix;
 pub mod ngrams;
 pub mod optimizer;
 pub mod report;

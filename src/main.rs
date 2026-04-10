@@ -166,12 +166,8 @@ impl Command {
         Ok(())
     }
 
-    fn load_layout(
-        &self,
-        layout_str: &str,
-        config: &LayoutConfig,
-    ) -> anyhow::Result<Layout<4, 12>> {
-        Layout::<4, 12>::new(
+    fn load_layout(&self, layout_str: &str, config: &LayoutConfig) -> anyhow::Result<Layout> {
+        Layout::new(
             layout_str,
             config.finger_assignment.clone(),
             config.finger_effort.clone(),
