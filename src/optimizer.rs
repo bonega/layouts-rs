@@ -295,7 +295,7 @@ struct OptimizableLayout {
 }
 
 impl OptimizableLayout {
-    pub fn new(layout: Layout, pinned_chars: &HashSet<char>, max_swapped: Option<usize>) -> Self {
+    pub fn new(layout: Layout, pinned_chars: HashSet<char>, max_swapped: Option<usize>) -> Self {
         let positions: Vec<Pos> = layout
             .keys()
             .filter(|key| !pinned_chars.contains(&key.ch))
@@ -397,35 +397,35 @@ impl OptimizableLayout {
     }
 }
 
+pub struct RunOptions {
+    pub iterations: usize,
+    pub seed: Option<u64>,
+    pub pinned: HashSet<char>,
+    pub max_swapped: Option<usize>,
+    pub shuffle: bool,
+}
+
 impl Optimizer {
     pub fn new(analyzer: Analyzer, targets: Targets) -> Self {
         Self { analyzer, targets }
     }
 
-    pub fn optimize(
-        &self,
-        layout: &Layout,
-        iterations: usize,
-        seed: Option<u64>,
-        pinned_chars: &HashSet<char>,
-        max_swapped: Option<usize>,
-        shuffle: bool,
-    ) -> Layout {
-        let mut rng: StdRng = if let Some(seed) = seed {
+    pub fn optimize(&self, layout: &Layout, opts: RunOptions) -> Layout {
+        let mut rng: StdRng = if let Some(seed) = opts.seed {
             StdRng::seed_from_u64(seed)
         } else {
             StdRng::from_rng(&mut rng())
         };
 
-        let mut best_layout = OptimizableLayout::new(layout.clone(), pinned_chars, max_swapped);
+        let mut best_layout = OptimizableLayout::new(layout.clone(), opts.pinned, opts.max_swapped);
 
-        if shuffle {
+        if opts.shuffle {
             best_layout.shuffle(&mut rng, 100);
         }
 
         let mut best_score = self.score(&best_layout.layout);
 
-        for iteration in 0..iterations {
+        for iteration in 0..opts.iterations {
             let mut candidate = best_layout.clone();
 
             if iteration > 0 {
@@ -493,8 +493,16 @@ mod optimizer_tests {
             },
         );
 
-        let optimized_layout =
-            optimizer.optimize(&layout, 10, Some(42), &HashSet::new(), None, false);
+        let optimized_layout = optimizer.optimize(
+            &layout,
+            RunOptions {
+                iterations: 10,
+                seed: Some(42),
+                pinned: HashSet::new(),
+                max_swapped: None,
+                shuffle: false,
+            },
+        );
 
         check!(optimized_layout.key_for('c').unwrap().effort == 1.0);
     }
@@ -521,7 +529,7 @@ mod optimizable_layout_tests {
 
     #[test]
     fn it_does_not_improve_layout_when_no_swap_gives_better_score() {
-        let mut optimizable = OptimizableLayout::new(make_layout(), &[].into(), None);
+        let mut optimizable = OptimizableLayout::new(make_layout(), [].into(), None);
         let result = optimizable.try_improve(|layout| {
             let score = layout_effort_score(layout);
             if score < 0.0 { Some(score) } else { None }
@@ -532,7 +540,7 @@ mod optimizable_layout_tests {
 
     #[test]
     fn it_improves_layout_by_applying_the_best_swap() {
-        let mut optimizable = OptimizableLayout::new(make_layout(), &[].into(), None);
+        let mut optimizable = OptimizableLayout::new(make_layout(), [].into(), None);
         let score = optimizable
             .try_improve(|layout| {
                 let score = layout.key_for('c').unwrap().effort;
@@ -546,7 +554,7 @@ mod optimizable_layout_tests {
 
     #[test]
     fn it_improves_layout_without_moving_pinned_chars() {
-        let mut optimizable = OptimizableLayout::new(make_layout(), &['a', 'c'].into(), None);
+        let mut optimizable = OptimizableLayout::new(make_layout(), ['a', 'c'].into(), None);
 
         while optimizable
             .try_improve(|layout| {
@@ -563,7 +571,7 @@ mod optimizable_layout_tests {
 
     #[test]
     fn it_does_not_improve_layout_when_only_one_char_is_unpinned() {
-        let mut optimizable = OptimizableLayout::new(make_layout(), &['a', 'b', 'c'].into(), None);
+        let mut optimizable = OptimizableLayout::new(make_layout(), ['a', 'b', 'c'].into(), None);
         let result = optimizable.try_improve(|layout| {
             let score = layout.key_for('d').unwrap().effort;
             if score < 200.0 { Some(score) } else { None }
@@ -574,7 +582,7 @@ mod optimizable_layout_tests {
 
     #[test]
     fn it_does_not_improve_layout_when_swap_exceeds_max_swapped() {
-        let mut optimizable = OptimizableLayout::new(make_layout(), &[].into(), Some(0));
+        let mut optimizable = OptimizableLayout::new(make_layout(), [].into(), Some(0));
         let result = optimizable.try_improve(|layout| {
             let score = layout.key_for('c').unwrap().effort;
             if score < 100.0 { Some(score) } else { None }
@@ -585,7 +593,7 @@ mod optimizable_layout_tests {
 
     #[test]
     fn it_improves_layout_when_swap_is_within_max_swapped() {
-        let mut optimizable = OptimizableLayout::new(make_layout(), &[].into(), Some(2));
+        let mut optimizable = OptimizableLayout::new(make_layout(), [].into(), Some(2));
         let score = optimizable
             .try_improve(|layout| {
                 let score = layout.key_for('c').unwrap().effort;
@@ -599,7 +607,7 @@ mod optimizable_layout_tests {
 
     #[test]
     fn it_does_not_improve_layout_after_convergence() {
-        let mut optimizable = OptimizableLayout::new(make_layout(), &[].into(), None);
+        let mut optimizable = OptimizableLayout::new(make_layout(), [].into(), None);
 
         let first = optimizable.try_improve(|layout| {
             let score = layout.key_for('c').unwrap().effort;
@@ -616,7 +624,7 @@ mod optimizable_layout_tests {
 
     #[test]
     fn it_perturbs_layout() {
-        let mut optimizable = OptimizableLayout::new(make_layout(), &[].into(), None);
+        let mut optimizable = OptimizableLayout::new(make_layout(), [].into(), None);
         let before: Vec<char> = optimizable.layout().keys().map(|k| k.ch).collect();
 
         let mut rng = StdRng::seed_from_u64(42);
@@ -629,7 +637,7 @@ mod optimizable_layout_tests {
     #[test]
     fn it_does_not_perturb_layout_when_all_chars_are_pinned() {
         let mut optimizable =
-            OptimizableLayout::new(make_layout(), &['a', 'b', 'c', 'd'].into(), None);
+            OptimizableLayout::new(make_layout(), ['a', 'b', 'c', 'd'].into(), None);
         let before: Vec<char> = optimizable.layout().keys().map(|k| k.ch).collect();
 
         let mut rng = StdRng::seed_from_u64(42);
@@ -641,7 +649,7 @@ mod optimizable_layout_tests {
 
     #[test]
     fn it_does_not_perturb_layout_beyond_max_swapped() {
-        let mut optimizable = OptimizableLayout::new(make_layout(), &[].into(), Some(0));
+        let mut optimizable = OptimizableLayout::new(make_layout(), [].into(), Some(0));
 
         let mut rng = StdRng::seed_from_u64(42);
         optimizable.perturb(&mut rng, 10);
@@ -651,7 +659,7 @@ mod optimizable_layout_tests {
 
     #[test]
     fn it_perturbs_layout_within_max_swapped() {
-        let mut optimizable = OptimizableLayout::new(make_layout(), &[].into(), Some(4));
+        let mut optimizable = OptimizableLayout::new(make_layout(), [].into(), Some(4));
 
         let mut rng = StdRng::seed_from_u64(42);
         optimizable.perturb(&mut rng, 10);
@@ -662,7 +670,7 @@ mod optimizable_layout_tests {
 
     #[test]
     fn it_shuffles_layoyt_ignoring_max_swapped() {
-        let mut optimizable = OptimizableLayout::new(make_layout(), &[].into(), Some(0));
+        let mut optimizable = OptimizableLayout::new(make_layout(), [].into(), Some(0));
         let before: Vec<char> = optimizable.layout().keys().map(|k| k.ch).collect();
 
         let mut rng = StdRng::seed_from_u64(42);

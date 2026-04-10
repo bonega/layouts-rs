@@ -7,7 +7,7 @@ use layouts_rs::{
     config::Config,
     corpus::Corpus,
     layout::Layout,
-    optimizer::Optimizer,
+    optimizer::{self, Optimizer},
     report::{Report, ReportMetrics},
 };
 
@@ -33,6 +33,12 @@ struct AnalyzeArgs {
 struct OptimizeArgs {
     #[command(flatten)]
     common: CommonConfig,
+    #[command(flatten)]
+    run_options: RunOptions,
+}
+
+#[derive(Parser, Clone)]
+struct RunOptions {
     #[arg(long, default_value = "10", help = "Number of optimization iterations")]
     iterations: usize,
     #[arg(long, help = "Random seed for optimization")]
@@ -54,6 +60,18 @@ struct OptimizeArgs {
         help = "Whether to shuffle the layout before optimization"
     )]
     shuffle: bool,
+}
+
+impl From<RunOptions> for optimizer::RunOptions {
+    fn from(options: RunOptions) -> Self {
+        Self {
+            iterations: options.iterations,
+            seed: options.seed,
+            pinned: options.pinned.chars().collect(),
+            max_swapped: options.max_swapped,
+            shuffle: options.shuffle,
+        }
+    }
 }
 
 #[derive(Parser)]
@@ -145,14 +163,7 @@ impl Command {
                 let corpus = args.common.corpus();
                 let analyzer = Analyzer::new(corpus);
                 let optimizer = Optimizer::new(analyzer.clone(), config.optimization.targets);
-                let optimized_layout = optimizer.optimize(
-                    &layout,
-                    args.iterations,
-                    args.seed,
-                    &args.pinned.chars().collect(),
-                    args.max_swapped,
-                    args.shuffle,
-                );
+                let optimized_layout = optimizer.optimize(&layout, args.run_options.clone().into());
 
                 let mut report_metrics = ReportMetrics::default();
                 analyzer.analyze(&optimized_layout, &mut report_metrics);
