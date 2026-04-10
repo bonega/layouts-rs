@@ -464,16 +464,18 @@ impl Optimizer {
 #[cfg(test)]
 mod optimizer_tests {
     use super::*;
-    use crate::corpus::Corpus;
+    use crate::{corpus::Corpus, layout::Config};
     use assert2::check;
 
     #[test]
     fn it_optimizes() {
         let layout = Layout::new(
             "ab\ncd",
-            matrix!([[1, 2], [1, 2]]),
-            matrix!([[1.0, 100.0], [100.0, 100.0]]),
-            [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+            &Config {
+                finger_assignment: matrix!([[1, 2], [1, 2]]),
+                finger_effort: matrix!([[1.0, 100.0], [100.0, 100.0]]),
+                finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+            },
         )
         .unwrap();
 
@@ -500,15 +502,19 @@ mod optimizer_tests {
 
 #[cfg(test)]
 mod optimizable_layout_tests {
+    use crate::layout::Config;
+
     use super::*;
     use assert2::check;
 
     fn make_layout() -> Layout {
         Layout::new(
             "ab\ncd",
-            matrix!([[1, 2], [1, 2]]),
-            matrix!([[1.0, 50.0], [100.0, 200.0]]),
-            [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+            &Config {
+                finger_assignment: matrix!([[1, 2], [1, 2]]),
+                finger_effort: matrix!([[1.0, 50.0], [100.0, 200.0]]),
+                finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+            },
         )
         .unwrap()
     }

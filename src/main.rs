@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand};
 
 use layouts_rs::{
     analyzer::Analyzer,
-    config::{Config, LayoutConfig},
+    config::Config,
     corpus::Corpus,
     layout::Layout,
     optimizer::Optimizer,
@@ -119,7 +119,8 @@ impl Command {
             Command::Analyze(args) => {
                 let config = Config::load(Path::new(&args.common.config))?;
 
-                let layout = self.load_layout(&args.common.layout, &config.layout)?;
+                let layout = Layout::new(&args.common.layout, &config.layout)
+                    .map_err(|e| anyhow::anyhow!("Failed to load layout: {e}"))?;
 
                 let corpus = args.common.corpus();
                 let analyzer = Analyzer::new(corpus);
@@ -138,7 +139,8 @@ impl Command {
             Command::Optimize(args) => {
                 let config = Config::load(Path::new(&args.common.config))?;
 
-                let layout = self.load_layout(&args.common.layout, &config.layout)?;
+                let layout = Layout::new(&args.common.layout, &config.layout)
+                    .map_err(|e| anyhow::anyhow!("Failed to load layout: {e}"))?;
 
                 let corpus = args.common.corpus();
                 let analyzer = Analyzer::new(corpus);
@@ -164,16 +166,6 @@ impl Command {
             }
         }
         Ok(())
-    }
-
-    fn load_layout(&self, layout_str: &str, config: &LayoutConfig) -> anyhow::Result<Layout> {
-        Layout::new(
-            layout_str,
-            config.finger_assignment.clone(),
-            config.finger_effort.clone(),
-            config.finger_home_positions.clone(),
-        )
-        .map_err(|e| anyhow::anyhow!("Failed to load layout: {e}"))
     }
 }
 

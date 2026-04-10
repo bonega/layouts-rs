@@ -65,6 +65,8 @@ impl SwapMove {
 mod single_moves_tests {
     use assert2::check;
 
+    use crate::layout::Config;
+
     use super::*;
 
     #[test]
@@ -97,9 +99,11 @@ mod single_moves_tests {
     fn it_applies() {
         let mut layout = Layout::new(
             "ab\ncd",
-            matrix!([[1, 2], [1, 2]]),
-            matrix!([[1.0, 2.0], [3.0, 4.0]]),
-            [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+            &Config {
+                finger_assignment: matrix!([[1, 2], [1, 2]]),
+                finger_effort: matrix!([[1.0, 2.0], [3.0, 4.0]]),
+                finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+            },
         )
         .unwrap();
 
@@ -114,9 +118,11 @@ mod single_moves_tests {
     fn it_reverts_when_applied_twice() {
         let original = Layout::new(
             "ab\ncd",
-            matrix!([[1, 2], [1, 2]]),
-            matrix!([[1.0, 2.0], [3.0, 4.0]]),
-            [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+            &Config {
+                finger_assignment: matrix!([[1, 2], [1, 2]]),
+                finger_effort: matrix!([[1.0, 2.0], [3.0, 4.0]]),
+                finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+            },
         )
         .unwrap();
 
@@ -133,6 +139,8 @@ mod single_moves_tests {
 #[cfg(test)]
 mod column_moves_tests {
     use assert2::check;
+
+    use crate::layout::Config;
 
     use super::*;
 
@@ -221,9 +229,11 @@ mod column_moves_tests {
     fn it_applies() {
         let mut layout = Layout::new(
             "ab\ncd",
-            matrix!([[1, 2], [1, 2]]),
-            matrix!([[1.0, 2.0], [3.0, 4.0]]),
-            [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+            &Config {
+                finger_assignment: matrix!([[1, 2], [1, 2]]),
+                finger_effort: matrix!([[1.0, 2.0], [3.0, 4.0]]),
+                finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+            },
         )
         .unwrap();
 
@@ -240,9 +250,11 @@ mod column_moves_tests {
     fn it_reverts_when_applied_twice() {
         let original = Layout::new(
             "ab\ncd",
-            matrix!([[1, 2], [1, 2]]),
-            matrix!([[1.0, 2.0], [3.0, 4.0]]),
-            [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+            &Config {
+                finger_assignment: matrix!([[1, 2], [1, 2]]),
+                finger_effort: matrix!([[1.0, 2.0], [3.0, 4.0]]),
+                finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+            },
         )
         .unwrap();
 
@@ -261,6 +273,8 @@ mod column_moves_tests {
 #[cfg(test)]
 mod row_moves_tests {
     use assert2::check;
+
+    use crate::layout::Config;
 
     use super::*;
 
@@ -349,9 +363,11 @@ mod row_moves_tests {
     fn it_applies() {
         let mut layout = Layout::new(
             "ab\ncd",
-            matrix!([[1, 2], [1, 2]]),
-            matrix!([[1.0, 2.0], [3.0, 4.0]]),
-            [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+            &Config {
+                finger_assignment: matrix!([[1, 2], [1, 2]]),
+                finger_effort: matrix!([[1.0, 2.0], [3.0, 4.0]]),
+                finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+            },
         )
         .unwrap();
 
@@ -368,9 +384,11 @@ mod row_moves_tests {
     fn it_reverts_when_applied_twice() {
         let original = Layout::new(
             "ab\ncd",
-            matrix!([[1, 2], [1, 2]]),
-            matrix!([[1.0, 2.0], [3.0, 4.0]]),
-            [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+            &Config {
+                finger_assignment: matrix!([[1, 2], [1, 2]]),
+                finger_effort: matrix!([[1.0, 2.0], [3.0, 4.0]]),
+                finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+            },
         )
         .unwrap();
 

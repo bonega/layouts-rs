@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::fmt;
 
+use serde::{Deserialize, Deserializer};
+
 use crate::matrix::{Matrix, Pos};
 
 const NONE_CHAR: char = '_';
@@ -109,18 +111,32 @@ pub enum FingerKind {
     Thumb,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct Config {
+    pub finger_assignment: Matrix<u8>,
+    pub finger_effort: Matrix<f64>,
+    #[serde(deserialize_with = "deserialize_finger_home_positions")]
+    pub finger_home_positions: HashMap<u8, Pos>,
+}
+
+fn deserialize_finger_home_positions<'de, D>(deserializer: D) -> Result<HashMap<u8, Pos>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw: HashMap<u8, [usize; 2]> = HashMap::deserialize(deserializer)?;
+    Ok(raw
+        .into_iter()
+        .map(|(k, [row, col])| (k, Pos::new(row, col)))
+        .collect())
+}
+
 #[derive(Clone)]
 pub struct Layout {
     keys: Matrix<Option<Key>>,
 }
 
 impl Layout {
-    pub fn new(
-        definition: &str,
-        finger_assignment: Matrix<u8>,
-        finger_effort: Matrix<f64>,
-        finger_home_positions: HashMap<u8, Pos>,
-    ) -> anyhow::Result<Self> {
+    pub fn new(definition: &str, config: &Config) -> anyhow::Result<Self> {
         let definition = Matrix::new(
             definition
                 .lines()
@@ -130,9 +146,13 @@ impl Layout {
                 .collect(),
         )?;
 
-        Self::check_matrix("finger assignment", &definition, &finger_assignment)?;
-        Self::check_matrix("finger effort", &definition, &finger_effort)?;
-        Self::check_finger_home_positions(&definition, &finger_assignment, &finger_home_positions)?;
+        Self::check_matrix("finger assignment", &definition, &config.finger_assignment)?;
+        Self::check_matrix("finger effort", &definition, &config.finger_effort)?;
+        Self::check_finger_home_positions(
+            &definition,
+            &config.finger_assignment,
+            &config.finger_home_positions,
+        )?;
 
         let mut keys = Matrix::filled(definition.rows, definition.columns, None);
 
@@ -141,15 +161,16 @@ impl Layout {
                 let pos = Pos::new(r, c);
 
                 let ch = *definition.get(&pos).unwrap();
-                let finger_index = *finger_assignment.get(&pos).unwrap();
+                let finger_index = *config.finger_assignment.get(&pos).unwrap();
 
                 if finger_index == 0 || ch == NONE_CHAR {
                     continue;
                 }
 
                 let finger = Finger::from(finger_index);
-                let effort = *finger_effort.get(&pos).unwrap();
-                let finger_home = finger_home_positions
+                let effort = *config.finger_effort.get(&pos).unwrap();
+                let finger_home = config
+                    .finger_home_positions
                     .get(&finger.into())
                     .is_some_and(|hp| hp.r == r && hp.c == c);
                 let key = Key::new(ch, finger, pos, effort, finger_home);
@@ -318,27 +339,29 @@ pub mod fixtures {
             " a s d f g   h j k l ; '
             _ z x c v b   n m , . / _
             "#,
-            matrix!([
-                [1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
-                [1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
-                [1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
-            ]),
-            matrix!([
-                [3.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 3.0],
-                [2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0],
-                [3.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 3.0],
-            ]),
-            [
-                (1, pos!(1, 1)),
-                (2, pos!(1, 2)),
-                (3, pos!(1, 3)),
-                (4, pos!(1, 4)),
-                (7, pos!(1, 7)),
-                (8, pos!(1, 8)),
-                (9, pos!(1, 9)),
-                (10, pos!(1, 10)),
-            ]
-            .into(),
+            &Config {
+                finger_assignment: matrix!([
+                    [1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
+                    [1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
+                    [1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
+                ]),
+                finger_effort: matrix!([
+                    [3.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 3.0],
+                    [2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0],
+                    [3.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 3.0],
+                ]),
+                finger_home_positions: [
+                    (1, pos!(1, 1)),
+                    (2, pos!(1, 2)),
+                    (3, pos!(1, 3)),
+                    (4, pos!(1, 4)),
+                    (7, pos!(1, 7)),
+                    (8, pos!(1, 8)),
+                    (9, pos!(1, 9)),
+                    (10, pos!(1, 10)),
+                ]
+                .into(),
+            },
         )
         .unwrap()
     }
@@ -415,27 +438,34 @@ mod tests {
             check!(
                 Layout::new(
                     "ab\ncd",
-                    matrix!([[1, 2], [1, 2]]),
-                    matrix!([[1.0, 1.0], [1.0, 1.0]]),
-                    [(1, pos!(0, 0)), (2, pos!(0, 1))].into()
+                    &Config {
+                        finger_assignment: matrix!([[1, 2], [1, 2]]),
+                        finger_effort: matrix!([[1.0, 1.0], [1.0, 1.0]]),
+                        finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into()
+                    }
                 )
                 .is_ok()
             );
             check!(
                 Layout::new(
                     "abc\ndef",
-                    matrix!([[1, 2, 3], [1, 2, 3]]),
-                    matrix!([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]),
-                    [(1, pos!(0, 0)), (2, pos!(0, 1)), (3, pos!(0, 2))].into()
+                    &Config {
+                        finger_assignment: matrix!([[1, 2, 3], [1, 2, 3]]),
+                        finger_effort: matrix!([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]),
+                        finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1)), (3, pos!(0, 2))]
+                            .into()
+                    }
                 )
                 .is_ok()
             );
             check!(
                 Layout::new(
                     "aa\naa",
-                    matrix!([[1, 2], [1, 2]]),
-                    matrix!([[1.0, 1.0], [1.0, 1.0]]),
-                    [(1, pos!(0, 0)), (2, pos!(0, 1))].into()
+                    &Config {
+                        finger_assignment: matrix!([[1, 2], [1, 2]]),
+                        finger_effort: matrix!([[1.0, 1.0], [1.0, 1.0]]),
+                        finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into()
+                    }
                 )
                 .is_ok()
             );
@@ -443,54 +473,66 @@ mod tests {
             check!(
                 Layout::new(
                     "abcde",
-                    matrix!([[1, 2], [1, 2]]),
-                    matrix!([[1.0, 1.0], [1.0, 1.0]]),
-                    [(1, pos!(0, 0)), (2, pos!(0, 1))].into()
+                    &Config {
+                        finger_assignment: matrix!([[1, 2], [1, 2]]),
+                        finger_effort: matrix!([[1.0, 1.0], [1.0, 1.0]]),
+                        finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into()
+                    }
                 )
                 .is_err()
             );
             check!(
                 Layout::new(
                     "ab\ncd",
-                    matrix!([[1, 2, 3], [1, 2, 3]]),
-                    matrix!([[1.0, 1.0], [1.0, 1.0]]),
-                    [(1, pos!(0, 0)), (2, pos!(0, 1))].into()
+                    &Config {
+                        finger_assignment: matrix!([[1, 2, 3], [1, 2, 3]]),
+                        finger_effort: matrix!([[1.0, 1.0], [1.0, 1.0]]),
+                        finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into()
+                    }
                 )
                 .is_err()
             );
             check!(
                 Layout::new(
                     "ab\ncd",
-                    matrix!([[1, 2], [1, 2]]),
-                    matrix!([[1.0, 1.0], [1.0, 1.0]]),
-                    [].into()
+                    &Config {
+                        finger_assignment: matrix!([[1, 2], [1, 2]]),
+                        finger_effort: matrix!([[1.0, 1.0], [1.0, 1.0]]),
+                        finger_home_positions: [].into()
+                    }
                 )
                 .is_err()
             );
             check!(
                 Layout::new(
                     "ab\ncd",
-                    matrix!([[1, 2], [1, 2]]),
-                    matrix!([[1.0, 1.0], [1.0, 1.0]]),
-                    [(1, pos!(0, 0)), (2, pos!(0, 0))].into()
+                    &Config {
+                        finger_assignment: matrix!([[1, 2], [1, 2]]),
+                        finger_effort: matrix!([[1.0, 1.0], [1.0, 1.0]]),
+                        finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 0))].into()
+                    }
                 )
                 .is_err()
             );
             check!(
                 Layout::new(
                     "ab\ncd",
-                    matrix!([[1, 2], [1, 2]]),
-                    matrix!([[1.0, 1.0], [1.0, 1.0]]),
-                    [(1, pos!(0, 0)), (2, pos!(1, 0))].into()
+                    &Config {
+                        finger_assignment: matrix!([[1, 2], [1, 2]]),
+                        finger_effort: matrix!([[1.0, 1.0], [1.0, 1.0]]),
+                        finger_home_positions: [(1, pos!(0, 0)), (2, pos!(1, 0))].into()
+                    }
                 )
                 .is_err()
             );
             check!(
                 Layout::new(
                     "_b\ncd",
-                    matrix!([[1, 2], [1, 2]]),
-                    matrix!([[1.0, 1.0], [1.0, 1.0]]),
-                    [(1, pos!(0, 0)), (2, pos!(0, 1))].into()
+                    &Config {
+                        finger_assignment: matrix!([[1, 2], [1, 2]]),
+                        finger_effort: matrix!([[1.0, 1.0], [1.0, 1.0]]),
+                        finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into()
+                    }
                 )
                 .is_err()
             );
@@ -500,9 +542,11 @@ mod tests {
         fn it_builds_with_underscores_as_none() {
             let layout = Layout::new(
                 "_ab\n_cd",
-                matrix!([[1, 1, 2], [1, 1, 2]]),
-                matrix!([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]),
-                [(1, pos!(0, 1)), (2, pos!(0, 2))].into(),
+                &Config {
+                    finger_assignment: matrix!([[1, 1, 2], [1, 1, 2]]),
+                    finger_effort: matrix!([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]),
+                    finger_home_positions: [(1, pos!(0, 1)), (2, pos!(0, 2))].into(),
+                },
             )
             .unwrap();
 
@@ -523,9 +567,12 @@ mod tests {
             a b c
             d e f
             "#,
-                    matrix!([[1, 2, 3], [1, 2, 3]]),
-                    matrix!([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]),
-                    [(1, pos!(0, 0)), (2, pos!(0, 1)), (3, pos!(0, 2))].into()
+                    &Config {
+                        finger_assignment: matrix!([[1, 2, 3], [1, 2, 3]]),
+                        finger_effort: matrix!([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]),
+                        finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1)), (3, pos!(0, 2))]
+                            .into()
+                    }
                 )
                 .is_ok()
             );
@@ -535,9 +582,12 @@ mod tests {
         fn it_returns_key_by_pos() {
             let layout = Layout::new(
                 "abc\ndef",
-                matrix!([[1, 2, 3], [1, 2, 3]]),
-                matrix!([[1.0, 1.0, 1.0], [2.0, 2.0, 2.0]]),
-                [(1, pos!(0, 0)), (2, pos!(0, 1)), (3, pos!(0, 2))].into(),
+                &Config {
+                    finger_assignment: matrix!([[1, 2, 3], [1, 2, 3]]),
+                    finger_effort: matrix!([[1.0, 1.0, 1.0], [2.0, 2.0, 2.0]]),
+                    finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1)), (3, pos!(0, 2))]
+                        .into(),
+                },
             )
             .unwrap();
 
@@ -561,9 +611,11 @@ mod tests {
         fn it_returns_key_by_char() {
             let layout = Layout::new(
                 "ab\ncd",
-                matrix!([[1, 2], [1, 2]]),
-                matrix!([[1.0, 1.0], [1.0, 1.0]]),
-                [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+                &Config {
+                    finger_assignment: matrix!([[1, 2], [1, 2]]),
+                    finger_effort: matrix!([[1.0, 1.0], [1.0, 1.0]]),
+                    finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+                },
             )
             .unwrap();
 
@@ -578,9 +630,11 @@ mod tests {
         fn it_returns_char_by_pos() {
             let layout = Layout::new(
                 "ab\ncd",
-                matrix!([[1, 2], [1, 2]]),
-                matrix!([[1.0, 1.0], [1.0, 1.0]]),
-                [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+                &Config {
+                    finger_assignment: matrix!([[1, 2], [1, 2]]),
+                    finger_effort: matrix!([[1.0, 1.0], [1.0, 1.0]]),
+                    finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+                },
             )
             .unwrap();
 
@@ -596,9 +650,11 @@ mod tests {
         fn it_sets_char_for_key() {
             let mut layout = Layout::new(
                 "ab\ncd",
-                matrix!([[1, 2], [1, 2]]),
-                matrix!([[1.0, 1.0], [1.0, 1.0]]),
-                [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+                &Config {
+                    finger_assignment: matrix!([[1, 2], [1, 2]]),
+                    finger_effort: matrix!([[1.0, 1.0], [1.0, 1.0]]),
+                    finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+                },
             )
             .unwrap();
 
@@ -610,9 +666,11 @@ mod tests {
         fn it_swaps_chars() {
             let mut layout = Layout::new(
                 "ab\ncd",
-                matrix!([[1, 2], [1, 2]]),
-                matrix!([[1.0, 1.0], [1.0, 1.0]]),
-                [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+                &Config {
+                    finger_assignment: matrix!([[1, 2], [1, 2]]),
+                    finger_effort: matrix!([[1.0, 1.0], [1.0, 1.0]]),
+                    finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+                },
             )
             .unwrap();
 
@@ -625,9 +683,11 @@ mod tests {
         fn it_returns_keys() {
             let layout = Layout::new(
                 "ab\ncd",
-                matrix!([[1, 2], [1, 2]]),
-                matrix!([[1.0, 1.0], [1.0, 1.0]]),
-                [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+                &Config {
+                    finger_assignment: matrix!([[1, 2], [1, 2]]),
+                    finger_effort: matrix!([[1.0, 1.0], [1.0, 1.0]]),
+                    finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+                },
             )
             .unwrap();
 
