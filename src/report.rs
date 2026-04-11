@@ -21,8 +21,18 @@ pub struct ReportMetrics {
     bigram_scissors: f64,
     bigram_wide_scissors: f64,
     bigram_others: f64,
-    trigram_same_hand_skips: f64,
-    trigram_alternation_skips: f64,
+    trigram_skips_same_hand: f64,
+    trigram_skips_same_hand_1: f64,
+    trigram_skips_same_hand_n: f64,
+    trigram_skips_alternation: f64,
+    trigram_skips_alternation_1: f64,
+    trigram_skips_alternation_n: f64,
+    trigram_lateral_stretches_same_hand: f64,
+    trigram_lateral_stretches_alternation: f64,
+    trigram_scissors_same_hand_1: f64,
+    trigram_scissors_same_hand_n: f64,
+    trigram_scissors_alternation_1: f64,
+    trigram_scissors_alternation_n: f64,
     trigram_roll_in: f64,
     trigram_roll_out: f64,
     trigram_roll_in_bigrams: f64,
@@ -47,73 +57,96 @@ impl Metrics for ReportMetrics {
                     self.pinky_off_home += count;
                 }
             }
-            Metric::Bigram(bigram, count) => match bigram.kind {
-                BigramKind::SameFingerSkip { skips } => {
-                    if skips == 1 {
-                        self.bigram_skips_1 += count;
-                    } else {
-                        self.bigram_skips_n += count;
+            Metric::Bigram(bigram, count) => {
+                for kind in bigram.kinds {
+                    match kind {
+                        BigramKind::SameFingerSkip { units } => {
+                            if units == 1 {
+                                self.bigram_skips_1 += count;
+                            } else {
+                                self.bigram_skips_n += count;
+                            }
+                        }
+                        BigramKind::LateralStretch { .. } => {
+                            self.bigram_lateral_stretches += count;
+                        }
+                        BigramKind::Scissor { units, .. } => {
+                            if units >= 2 {
+                                self.bigram_wide_scissors += count;
+                            } else {
+                                self.bigram_scissors += count;
+                            }
+                        }
+                        BigramKind::Other => {
+                            self.bigram_others += count;
+                        }
                     }
                 }
-                BigramKind::LateralStretch { .. } => {
-                    self.bigram_lateral_stretches += count;
-                }
-                BigramKind::Scissor {
-                    col_distance,
-                    row_distance,
-                } => {
-                    if col_distance + row_distance > 2 {
-                        self.bigram_wide_scissors += count;
-                    } else {
-                        self.bigram_scissors += count;
+            }
+            Metric::Trigram(trigram, count) => {
+                for kind in trigram.kinds {
+                    match kind {
+                        TrigramKind::SameFingerSkip { units, same_hand } => {
+                            if same_hand {
+                                self.trigram_skips_same_hand += count;
+                                if units == 1 {
+                                    self.trigram_skips_same_hand_1 += count;
+                                } else {
+                                    self.trigram_skips_same_hand_n += count;
+                                }
+                            } else {
+                                self.trigram_skips_alternation += count;
+                                if units == 1 {
+                                    self.trigram_skips_alternation_1 += count;
+                                } else {
+                                    self.trigram_skips_alternation_n += count;
+                                }
+                            }
+                        }
+                        TrigramKind::LateralStretch { same_hand, .. } => {
+                            if same_hand {
+                                self.trigram_lateral_stretches_same_hand += count;
+                            } else {
+                                self.trigram_lateral_stretches_alternation += count;
+                            }
+                        }
+                        TrigramKind::Scissor {
+                            units, same_hand, ..
+                        } => {
+                            if same_hand {
+                                if units >= 2 {
+                                    self.trigram_scissors_same_hand_n += count;
+                                } else {
+                                    self.trigram_scissors_same_hand_1 += count;
+                                }
+                            } else if units >= 2 {
+                                self.trigram_scissors_alternation_n += count;
+                            } else {
+                                self.trigram_scissors_alternation_1 += count;
+                            }
+                        }
+                        TrigramKind::Roll { triple, inward } => match (triple, inward) {
+                            (true, true) => self.trigram_roll_in += count,
+                            (true, false) => self.trigram_roll_out += count,
+                            (false, true) => self.trigram_roll_in_bigrams += count,
+                            (false, false) => self.trigram_roll_out_bigrams += count,
+                        },
+                        TrigramKind::Redirect { weak } => {
+                            if weak {
+                                self.trigram_redirects_weak += count;
+                            } else {
+                                self.trigram_redirects_strong += count;
+                            }
+                        }
+                        TrigramKind::Alternation => {
+                            self.trigram_alternations += count;
+                        }
+                        TrigramKind::Other => {
+                            self.trigram_others += count;
+                        }
                     }
                 }
-                BigramKind::Other => {
-                    self.bigram_others += count;
-                }
-            },
-            Metric::Trigram(trigram, count) => match trigram.kind {
-                TrigramKind::SameFingerSkip { same_hand, .. } => {
-                    if same_hand {
-                        self.trigram_same_hand_skips += count;
-                    } else {
-                        self.trigram_alternation_skips += count;
-                    }
-                }
-                TrigramKind::Roll { triple, inward } => match (triple, inward) {
-                    (true, true) => self.trigram_roll_in += count,
-                    (true, false) => self.trigram_roll_out += count,
-                    (false, true) => self.trigram_roll_in_bigrams += count,
-                    (false, false) => self.trigram_roll_out_bigrams += count,
-                },
-                TrigramKind::RollIn { triple } => {
-                    if triple {
-                        self.trigram_roll_in += count;
-                    } else {
-                        self.trigram_roll_in_bigrams += count;
-                    }
-                }
-                TrigramKind::RollOut { triple } => {
-                    if triple {
-                        self.trigram_roll_out += count;
-                    } else {
-                        self.trigram_roll_out_bigrams += count;
-                    }
-                }
-                TrigramKind::Redirect { weak } => {
-                    if weak {
-                        self.trigram_redirects_weak += count;
-                    } else {
-                        self.trigram_redirects_strong += count;
-                    }
-                }
-                TrigramKind::Alternation => {
-                    self.trigram_alternations += count;
-                }
-                TrigramKind::Other => {
-                    self.trigram_others += count;
-                }
-            },
+            }
             Metric::CorpusLenght(total_chars) => {
                 self.total_chars = total_chars;
             }
@@ -136,8 +169,18 @@ pub struct Report {
     bigram_scissors: f64,
     bigram_wide_scissors: f64,
     bigram_others: f64,
-    trigram_same_hand_skips: f64,
-    trigram_alternation_skips: f64,
+    trigram_skips_same_hand: f64,
+    trigram_skips_same_hand_1: f64,
+    trigram_skips_same_hand_n: f64,
+    trigram_skips_alternation: f64,
+    trigram_skips_alternation_1: f64,
+    trigram_skips_alternation_n: f64,
+    trigram_lateral_stretches_same_hand: f64,
+    trigram_lateral_stretches_alternation: f64,
+    trigram_scissors_same_hand_1: f64,
+    trigram_scissors_same_hand_n: f64,
+    trigram_scissors_alternation_1: f64,
+    trigram_scissors_alternation_n: f64,
     trigram_roll_in: f64,
     trigram_roll_out: f64,
     trigram_roll_in_bigrams: f64,
@@ -196,8 +239,30 @@ impl From<ReportMetrics> for Report {
             bigram_scissors: 100.0 * metrics.bigram_scissors / metrics.total_chars,
             bigram_wide_scissors: 100.0 * metrics.bigram_wide_scissors / metrics.total_chars,
             bigram_others: 100.0 * metrics.bigram_others / metrics.total_chars,
-            trigram_same_hand_skips: 100.0 * metrics.trigram_same_hand_skips / metrics.total_chars,
-            trigram_alternation_skips: 100.0 * metrics.trigram_alternation_skips
+            trigram_skips_same_hand: 100.0 * metrics.trigram_skips_same_hand / metrics.total_chars,
+            trigram_skips_same_hand_1: 100.0 * metrics.trigram_skips_same_hand_1
+                / metrics.total_chars,
+            trigram_skips_same_hand_n: 100.0 * metrics.trigram_skips_same_hand_n
+                / metrics.total_chars,
+            trigram_skips_alternation: 100.0 * metrics.trigram_skips_alternation
+                / metrics.total_chars,
+            trigram_skips_alternation_1: 100.0 * metrics.trigram_skips_alternation_1
+                / metrics.total_chars,
+            trigram_skips_alternation_n: 100.0 * metrics.trigram_skips_alternation_n
+                / metrics.total_chars,
+            trigram_lateral_stretches_same_hand: 100.0
+                * metrics.trigram_lateral_stretches_same_hand
+                / metrics.total_chars,
+            trigram_lateral_stretches_alternation: 100.0
+                * metrics.trigram_lateral_stretches_alternation
+                / metrics.total_chars,
+            trigram_scissors_same_hand_1: 100.0 * metrics.trigram_scissors_same_hand_1
+                / metrics.total_chars,
+            trigram_scissors_same_hand_n: 100.0 * metrics.trigram_scissors_same_hand_n
+                / metrics.total_chars,
+            trigram_scissors_alternation_1: 100.0 * metrics.trigram_scissors_alternation_1
+                / metrics.total_chars,
+            trigram_scissors_alternation_n: 100.0 * metrics.trigram_scissors_alternation_n
                 / metrics.total_chars,
             trigram_roll_in: 100.0 * metrics.trigram_roll_in / metrics.total_chars,
             trigram_roll_out: 100.0 * metrics.trigram_roll_out / metrics.total_chars,
@@ -242,21 +307,66 @@ impl Display for Report {
         }
 
         writeln!(f, "Bigram metrics:")?;
-        writeln!(f, "  Skips (1): {:.2}%", self.bigram_skips_1)?;
-        writeln!(f, "  Skips (n): {:.2}%", self.bigram_skips_n)?;
+        writeln!(f, "  Skips 1: {:.2}%", self.bigram_skips_1)?;
+        writeln!(f, "  Skips n: {:.2}%", self.bigram_skips_n)?;
         writeln!(
             f,
             "  Lateral stretches: {:.2}%",
             self.bigram_lateral_stretches
         )?;
         writeln!(f, "  Scissors: {:.2}%", self.bigram_scissors)?;
+        writeln!(f, "  Scissors wide: {:.2}%", self.bigram_wide_scissors)?;
         writeln!(f, "  Others: {:.2}%", self.bigram_others)?;
         writeln!(f, "Trigram metrics:")?;
-        writeln!(f, "  Same-hand skips: {:.2}%", self.trigram_same_hand_skips)?;
         writeln!(
             f,
-            "  Alternation skips: {:.2}%",
-            self.trigram_alternation_skips
+            "  Same-hand skips 1: {:.2}%",
+            self.trigram_skips_same_hand_1
+        )?;
+        writeln!(
+            f,
+            "  Same-hand skips n: {:.2}%",
+            self.trigram_skips_same_hand_n
+        )?;
+        writeln!(
+            f,
+            "  Alternation skips 1: {:.2}%",
+            self.trigram_skips_alternation_1
+        )?;
+        writeln!(
+            f,
+            "  Alternation skips n: {:.2}%",
+            self.trigram_skips_alternation_n
+        )?;
+        writeln!(
+            f,
+            "  Lateral stretches (same hand): {:.2}%",
+            self.trigram_lateral_stretches_same_hand
+        )?;
+        writeln!(
+            f,
+            "  Lateral stretches (alternation): {:.2}%",
+            self.trigram_lateral_stretches_alternation
+        )?;
+        writeln!(
+            f,
+            "  Scissors (same hand 1): {:.2}%",
+            self.trigram_scissors_same_hand_1
+        )?;
+        writeln!(
+            f,
+            "  Scissors (same hand n): {:.2}%",
+            self.trigram_scissors_same_hand_n
+        )?;
+        writeln!(
+            f,
+            "  Scissors (alternation 1): {:.2}%",
+            self.trigram_scissors_alternation_1
+        )?;
+        writeln!(
+            f,
+            "  Scissors (alternation n): {:.2}%",
+            self.trigram_scissors_alternation_n
         )?;
         writeln!(f, "  Roll-in: {:.2}%", self.trigram_roll_in)?;
         writeln!(f, "  Roll-out: {:.2}%", self.trigram_roll_out)?;
@@ -272,7 +382,11 @@ impl Display for Report {
             "  Redirects (strong): {:.2}%",
             self.trigram_redirects_strong
         )?;
-        writeln!(f, "  Alternations: {:.2}%", self.trigram_alternations)?;
+        writeln!(
+            f,
+            "  Alternations (total): {:.2}%",
+            self.trigram_alternations
+        )?;
         writeln!(f, "  Others: {:.2}%", self.trigram_others)?;
         Ok(())
     }
@@ -385,8 +499,8 @@ mod report_metrics_tests {
         fn it_collects_scissors(qwerty: Layout) {
             let mut metrics = ReportMetrics::default();
 
-            metrics.collect_metric(Metric::Bigram(ngram!(qwerty, 'd', 't'), 10.0));
-            metrics.collect_metric(Metric::Bigram(ngram!(qwerty, 'd', 'r'), 20.0));
+            metrics.collect_metric(Metric::Bigram(ngram!(qwerty, 'c', 'w'), 10.0));
+            metrics.collect_metric(Metric::Bigram(ngram!(qwerty, 'c', 's'), 20.0));
 
             check!(metrics.bigram_wide_scissors == 10.0);
             check!(metrics.bigram_scissors == 20.0);
@@ -413,8 +527,36 @@ mod report_metrics_tests {
             metrics.collect_metric(Metric::Trigram(ngram!(qwerty, 'q', 'w', 'a'), 10.0));
             metrics.collect_metric(Metric::Trigram(ngram!(qwerty, 'q', 'h', 'a'), 20.0));
 
-            check!(metrics.trigram_same_hand_skips == 10.0);
-            check!(metrics.trigram_alternation_skips == 20.0);
+            check!(metrics.trigram_skips_same_hand == 10.0);
+            check!(metrics.trigram_skips_same_hand_1 == 10.0);
+            check!(metrics.trigram_skips_same_hand_n == 0.0);
+            check!(metrics.trigram_skips_alternation == 20.0);
+            check!(metrics.trigram_skips_alternation_1 == 20.0);
+            check!(metrics.trigram_skips_alternation_n == 0.0);
+        }
+
+        #[rstest]
+        fn it_collects_trigram_lateral_stretches(qwerty: Layout) {
+            let mut metrics = ReportMetrics::default();
+
+            metrics.collect_metric(Metric::Trigram(ngram!(qwerty, 'l', 'i', '\''), 10.0));
+            metrics.collect_metric(Metric::Trigram(ngram!(qwerty, 'd', 'u', 'g'), 20.0));
+
+            check!(metrics.trigram_lateral_stretches_same_hand == 10.0);
+            check!(metrics.trigram_lateral_stretches_alternation == 20.0);
+        }
+
+        #[rstest]
+        fn it_collects_trigram_scissors(qwerty: Layout) {
+            let mut metrics = ReportMetrics::default();
+
+            metrics.collect_metric(Metric::Trigram(ngram!(qwerty, 'c', 'a', 'w'), 10.0));
+            metrics.collect_metric(Metric::Trigram(ngram!(qwerty, 'c', 'j', 'w'), 20.0));
+
+            check!(metrics.trigram_scissors_same_hand_1 == 0.0);
+            check!(metrics.trigram_scissors_same_hand_n == 10.0);
+            check!(metrics.trigram_scissors_alternation_1 == 0.0);
+            check!(metrics.trigram_scissors_alternation_n == 20.0);
         }
 
         #[rstest]
@@ -479,12 +621,22 @@ mod report_tests {
             pinky_off_home: 10.0,
             bigram_skips_1: 20.0,
             bigram_skips_n: 40.0,
-            bigram_lateral_stretches: 60.0,
+            bigram_lateral_stretches: 40.0,
             bigram_scissors: 80.0,
             bigram_wide_scissors: 80.0,
             bigram_others: 40.0,
-            trigram_same_hand_skips: 10.0,
-            trigram_alternation_skips: 20.0,
+            trigram_skips_same_hand: 10.0,
+            trigram_skips_same_hand_1: 10.0,
+            trigram_skips_same_hand_n: 0.0,
+            trigram_skips_alternation: 20.0,
+            trigram_skips_alternation_1: 20.0,
+            trigram_skips_alternation_n: 0.0,
+            trigram_lateral_stretches_same_hand: 20.0,
+            trigram_lateral_stretches_alternation: 15.0,
+            trigram_scissors_same_hand_1: 8.0,
+            trigram_scissors_same_hand_n: 12.0,
+            trigram_scissors_alternation_1: 6.0,
+            trigram_scissors_alternation_n: 4.0,
             trigram_roll_in: 30.0,
             trigram_roll_out: 40.0,
             trigram_roll_in_bigrams: 50.0,
@@ -515,12 +667,22 @@ mod report_tests {
                     pinky_off_home: 5.0,
                     bigram_skips_1: 10.0,
                     bigram_skips_n: 20.0,
-                    bigram_lateral_stretches: 30.0,
+                    bigram_lateral_stretches: 20.0,
                     bigram_scissors: 40.0,
                     bigram_wide_scissors: 40.0,
                     bigram_others: 20.0,
-                    trigram_same_hand_skips: 5.0,
-                    trigram_alternation_skips: 10.0,
+                    trigram_skips_same_hand: 5.0,
+                    trigram_skips_same_hand_1: 5.0,
+                    trigram_skips_same_hand_n: 0.0,
+                    trigram_skips_alternation: 10.0,
+                    trigram_skips_alternation_1: 10.0,
+                    trigram_skips_alternation_n: 0.0,
+                    trigram_lateral_stretches_same_hand: 10.0,
+                    trigram_lateral_stretches_alternation: 7.5,
+                    trigram_scissors_same_hand_1: 4.0,
+                    trigram_scissors_same_hand_n: 6.0,
+                    trigram_scissors_alternation_1: 3.0,
+                    trigram_scissors_alternation_n: 2.0,
                     trigram_roll_in: 15.0,
                     trigram_roll_out: 20.0,
                     trigram_roll_in_bigrams: 25.0,

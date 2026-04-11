@@ -31,12 +31,18 @@ impl Key {
         self.finger == other.finger
     }
 
-    pub fn row_distance(&self, other: &Key) -> usize {
-        self.position.r.abs_diff(other.position.r)
+    pub fn row_distance(&self, other: &Key) -> f64 {
+        self.position.r.abs_diff(other.position.r) as f64
     }
 
-    pub fn column_distance(&self, other: &Key) -> usize {
-        self.position.c.abs_diff(other.position.c)
+    pub fn column_distance(&self, other: &Key) -> f64 {
+        self.position.c.abs_diff(other.position.c) as f64
+    }
+
+    pub fn distance(&self, other: &Key) -> f64 {
+        (self.row_distance(other))
+            .hypot(self.column_distance(other))
+            .round()
     }
 }
 
@@ -410,10 +416,10 @@ mod tests {
             let key3 = key!('a', 1, pos!(1, 0));
             let key4 = key!('z', 1, pos!(2, 0));
 
-            check!(key1.row_distance(&key2) == 0);
-            check!(key1.row_distance(&key3) == 1);
-            check!(key1.row_distance(&key4) == 2);
-            check!(key4.row_distance(&key1) == 2);
+            check!(key1.row_distance(&key2) == 0.0);
+            check!(key1.row_distance(&key3) == 1.0);
+            check!(key1.row_distance(&key4) == 2.0);
+            check!(key4.row_distance(&key1) == 2.0);
         }
 
         #[test]
@@ -423,10 +429,23 @@ mod tests {
             let key3 = key!('a', 1, pos!(1, 0));
             let key4 = key!('e', 1, pos!(1, 2));
 
-            check!(key1.column_distance(&key2) == 1);
-            check!(key1.column_distance(&key3) == 0);
-            check!(key1.column_distance(&key4) == 2);
-            check!(key4.column_distance(&key1) == 2);
+            check!(key1.column_distance(&key2) == 1.0);
+            check!(key1.column_distance(&key3) == 0.0);
+            check!(key1.column_distance(&key4) == 2.0);
+            check!(key4.column_distance(&key1) == 2.0);
+        }
+
+        #[test]
+        fn it_checks_u_distance() {
+            let key1 = key!('q', 1, pos!(0, 0));
+            let key2 = key!('w', 1, pos!(0, 1));
+            let key3 = key!('a', 1, pos!(1, 0));
+            let key4 = key!('z', 1, pos!(2, 0));
+
+            check!(key1.distance(&key2) == 1.0);
+            check!(key1.distance(&key3) == 1.0);
+            check!(key2.distance(&key3) == 1.0);
+            check!(key2.distance(&key4) == 2.0);
         }
     }
 
