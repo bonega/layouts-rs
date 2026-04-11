@@ -1,3 +1,5 @@
+use arrayvec::ArrayVec;
+
 use crate::layout::{FingerKind, Key};
 
 // Based on https://docs.google.com/document/d/1W0jhfqJI2ueJ2FNseR4YAFpNfsUM-_FlREHbpNGmC2o
@@ -13,13 +15,13 @@ const PREFERRED_SCISSOR_PAIRS: [(FingerKind, FingerKind); 6] = [
 
 #[derive(PartialEq, Debug)]
 pub struct Trigram {
-    pub kinds: Vec<TrigramKind>,
+    pub kinds: TrigramKinds,
     key1: Key,
     key2: Key,
     key3: Key,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum TrigramKind {
     SameFingerSkip {
         units: u8,
@@ -47,6 +49,8 @@ pub enum TrigramKind {
     Other,
 }
 
+pub type TrigramKinds = ArrayVec<TrigramKind, 4>;
+
 impl Trigram {
     pub fn new(key1: &Key, key2: &Key, key3: &Key) -> Self {
         Self {
@@ -57,8 +61,8 @@ impl Trigram {
         }
     }
 
-    fn find_kinds(key1: &Key, key2: &Key, key3: &Key) -> Vec<TrigramKind> {
-        let mut kinds = Vec::new();
+    fn find_kinds(key1: &Key, key2: &Key, key3: &Key) -> TrigramKinds {
+        let mut kinds = TrigramKinds::new();
 
         if !key1.same_finger(key2) && !key3.same_finger(key2) {
             let same_hand = key2.finger.hand == key1.finger.hand;
@@ -154,12 +158,12 @@ impl Trigram {
 
 #[derive(PartialEq, Debug)]
 pub struct Bigram {
-    pub kinds: Vec<BigramKind>,
+    pub kinds: BigramKinds,
     key1: Key,
     key2: Key,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum BigramKind {
     SameFingerSkip {
         units: u8,
@@ -176,6 +180,8 @@ pub enum BigramKind {
     Other,
 }
 
+pub type BigramKinds = ArrayVec<BigramKind, 4>;
+
 impl Bigram {
     pub fn new(key1: &Key, key2: &Key) -> Self {
         Self {
@@ -185,12 +191,12 @@ impl Bigram {
         }
     }
 
-    fn find_kinds(key1: &Key, key2: &Key) -> Vec<BigramKind> {
+    fn find_kinds(key1: &Key, key2: &Key) -> BigramKinds {
         let row_distance = key1.row_distance(key2);
         let col_distance = key1.column_distance(key2);
         let finger_distance = key1.finger.distance(&key2.finger);
 
-        let mut kinds = Vec::new();
+        let mut kinds = BigramKinds::new();
 
         if key1.same_finger(key2) && (row_distance > 0.0 || col_distance > 0.0) {
             kinds.push(BigramKind::SameFingerSkip {
@@ -271,15 +277,10 @@ mod bigram_tests {
     fn it_returns_the_bigram_with_keys(qwerty: Layout) {
         let key1 = *qwerty.key_for('a').unwrap();
         let key2 = *qwerty.key_for('s').unwrap();
+        let mut kinds = BigramKinds::new();
+        kinds.push(BigramKind::Other);
 
-        check!(
-            Bigram::new(&key1, &key2)
-                == Bigram {
-                    kinds: vec![BigramKind::Other],
-                    key1,
-                    key2,
-                }
-        );
+        check!(Bigram::new(&key1, &key2) == Bigram { kinds, key1, key2 });
     }
 
     #[rstest]
@@ -298,11 +299,20 @@ mod bigram_tests {
         #[case] expected_kinds: Vec<BigramKind>,
         qwerty: Layout,
     ) {
-        let key1 = qwerty.key_for(ch1).unwrap();
-        let key2 = qwerty.key_for(ch2).unwrap();
-
-        check!(Bigram::new(key1, key2).kinds == expected_kinds);
-        check!(Bigram::new(key2, key1).kinds == expected_kinds);
+        check!(
+            ngram!(qwerty, ch1, ch2)
+                .kinds
+                .into_iter()
+                .collect::<Vec<_>>()
+                == expected_kinds
+        );
+        check!(
+            ngram!(qwerty, ch2, ch1)
+                .kinds
+                .into_iter()
+                .collect::<Vec<_>>()
+                == expected_kinds
+        );
     }
 
     #[rstest]
@@ -318,11 +328,20 @@ mod bigram_tests {
         #[case] expected_kinds: Vec<BigramKind>,
         qwerty: Layout,
     ) {
-        let key1 = qwerty.key_for(ch1).unwrap();
-        let key2 = qwerty.key_for(ch2).unwrap();
-
-        check!(Bigram::new(key1, key2).kinds == expected_kinds);
-        check!(Bigram::new(key2, key1).kinds == expected_kinds);
+        check!(
+            ngram!(qwerty, ch1, ch2)
+                .kinds
+                .into_iter()
+                .collect::<Vec<_>>()
+                == expected_kinds
+        );
+        check!(
+            ngram!(qwerty, ch2, ch1)
+                .kinds
+                .into_iter()
+                .collect::<Vec<_>>()
+                == expected_kinds
+        );
     }
 
     #[rstest]
@@ -337,11 +356,20 @@ mod bigram_tests {
         #[case] expected_kinds: Vec<BigramKind>,
         qwerty: Layout,
     ) {
-        let key1 = qwerty.key_for(ch1).unwrap();
-        let key2 = qwerty.key_for(ch2).unwrap();
-
-        check!(Bigram::new(key1, key2).kinds == expected_kinds);
-        check!(Bigram::new(key2, key1).kinds == expected_kinds);
+        check!(
+            ngram!(qwerty, ch1, ch2)
+                .kinds
+                .into_iter()
+                .collect::<Vec<_>>()
+                == expected_kinds
+        );
+        check!(
+            ngram!(qwerty, ch2, ch1)
+                .kinds
+                .into_iter()
+                .collect::<Vec<_>>()
+                == expected_kinds
+        );
     }
 
     #[rstest]
@@ -359,11 +387,20 @@ mod bigram_tests {
     #[case('f', 'q')]
     #[case('j', 'p')]
     fn it_calculates_bigram_other(#[case] ch1: char, #[case] ch2: char, qwerty: Layout) {
-        let key1 = qwerty.key_for(ch1).unwrap();
-        let key2 = qwerty.key_for(ch2).unwrap();
-
-        check!(Bigram::new(key1, key2).kinds == vec![BigramKind::Other]);
-        check!(Bigram::new(key2, key1).kinds == vec![BigramKind::Other]);
+        check!(
+            ngram!(qwerty, ch1, ch2)
+                .kinds
+                .into_iter()
+                .collect::<Vec<_>>()
+                == vec![BigramKind::Other]
+        );
+        check!(
+            ngram!(qwerty, ch2, ch1)
+                .kinds
+                .into_iter()
+                .collect::<Vec<_>>()
+                == vec![BigramKind::Other]
+        );
     }
 }
 
@@ -395,11 +432,13 @@ mod trigram_tests {
         #[case] expected_kinds: Vec<TrigramKind>,
         qwerty: Layout,
     ) {
-        let key1 = qwerty.key_for(ch1).unwrap();
-        let key2 = qwerty.key_for(ch2).unwrap();
-        let key3 = qwerty.key_for(ch3).unwrap();
-
-        check!(Trigram::new(key1, key2, key3).kinds == expected_kinds);
+        check!(
+            ngram!(qwerty, ch1, ch2, ch3)
+                .kinds
+                .into_iter()
+                .collect::<Vec<_>>()
+                == expected_kinds
+        );
     }
 
     #[rstest]
@@ -413,11 +452,13 @@ mod trigram_tests {
         #[case] expected_kinds: Vec<TrigramKind>,
         qwerty: Layout,
     ) {
-        let key1 = qwerty.key_for(ch1).unwrap();
-        let key2 = qwerty.key_for(ch2).unwrap();
-        let key3 = qwerty.key_for(ch3).unwrap();
-
-        check!(Trigram::new(key1, key2, key3).kinds == expected_kinds);
+        check!(
+            ngram!(qwerty, ch1, ch2, ch3)
+                .kinds
+                .into_iter()
+                .collect::<Vec<_>>()
+                == expected_kinds
+        );
     }
 
     #[rstest]
@@ -433,11 +474,13 @@ mod trigram_tests {
         #[case] expected_kinds: Vec<TrigramKind>,
         qwerty: Layout,
     ) {
-        let key1 = qwerty.key_for(ch1).unwrap();
-        let key2 = qwerty.key_for(ch2).unwrap();
-        let key3 = qwerty.key_for(ch3).unwrap();
-
-        check!(Trigram::new(key1, key2, key3).kinds == expected_kinds);
+        check!(
+            ngram!(qwerty, ch1, ch2, ch3)
+                .kinds
+                .into_iter()
+                .collect::<Vec<_>>()
+                == expected_kinds
+        );
     }
 
     #[rstest]
@@ -465,11 +508,13 @@ mod trigram_tests {
         #[case] expected_kinds: Vec<TrigramKind>,
         qwerty: Layout,
     ) {
-        let key1 = qwerty.key_for(ch1).unwrap();
-        let key2 = qwerty.key_for(ch2).unwrap();
-        let key3 = qwerty.key_for(ch3).unwrap();
-
-        check!(Trigram::new(key1, key2, key3).kinds == expected_kinds);
+        check!(
+            ngram!(qwerty, ch1, ch2, ch3)
+                .kinds
+                .into_iter()
+                .collect::<Vec<_>>()
+                == expected_kinds
+        );
     }
 
     #[rstest]
@@ -482,11 +527,13 @@ mod trigram_tests {
         #[case] expected_kinds: Vec<TrigramKind>,
         qwerty: Layout,
     ) {
-        let key1 = qwerty.key_for(ch1).unwrap();
-        let key2 = qwerty.key_for(ch2).unwrap();
-        let key3 = qwerty.key_for(ch3).unwrap();
-
-        check!(Trigram::new(key1, key2, key3).kinds == expected_kinds);
+        check!(
+            ngram!(qwerty, ch1, ch2, ch3)
+                .kinds
+                .into_iter()
+                .collect::<Vec<_>>()
+                == expected_kinds
+        );
     }
 
     #[rstest]
@@ -499,11 +546,13 @@ mod trigram_tests {
         #[case] expected_kinds: Vec<TrigramKind>,
         qwerty: Layout,
     ) {
-        let key1 = qwerty.key_for(ch1).unwrap();
-        let key2 = qwerty.key_for(ch2).unwrap();
-        let key3 = qwerty.key_for(ch3).unwrap();
-
-        check!(Trigram::new(key1, key2, key3).kinds == expected_kinds);
+        check!(
+            ngram!(qwerty, ch1, ch2, ch3)
+                .kinds
+                .into_iter()
+                .collect::<Vec<_>>()
+                == expected_kinds
+        );
     }
 
     #[rstest]
@@ -516,10 +565,12 @@ mod trigram_tests {
         #[case] ch3: char,
         qwerty: Layout,
     ) {
-        let key1 = qwerty.key_for(ch1).unwrap();
-        let key2 = qwerty.key_for(ch2).unwrap();
-        let key3 = qwerty.key_for(ch3).unwrap();
-
-        check!(Trigram::new(key1, key2, key3).kinds == vec![TrigramKind::Other]);
+        check!(
+            ngram!(qwerty, ch1, ch2, ch3)
+                .kinds
+                .into_iter()
+                .collect::<Vec<_>>()
+                == vec![TrigramKind::Other]
+        );
     }
 }
