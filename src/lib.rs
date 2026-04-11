@@ -57,6 +57,26 @@ macro_rules! optimizer_target {
     };
 }
 
+#[cfg(test)]
+macro_rules! ngram {
+    ($layout:expr, $char:expr) => {
+        crate::ngrams::Unigram::new($layout.key_for($char).unwrap())
+    };
+    ($layout:expr, $char1:expr, $char2:expr) => {
+        crate::ngrams::Bigram::new(
+            $layout.key_for($char1).unwrap(),
+            $layout.key_for($char2).unwrap(),
+        )
+    };
+    ($layout:expr, $char1:expr, $char2:expr, $char3:expr) => {
+        crate::ngrams::Trigram::new(
+            $layout.key_for($char1).unwrap(),
+            $layout.key_for($char2).unwrap(),
+            $layout.key_for($char3).unwrap(),
+        )
+    };
+}
+
 pub mod analyzer;
 pub mod config;
 pub mod corpus;

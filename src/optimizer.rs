@@ -863,7 +863,6 @@ mod optimizer_metrics_tests {
     use crate::{
         analyzer::Metric,
         layout::{Layout, fixtures::qwerty},
-        ngrams::{Bigram, Trigram, Unigram},
     };
 
     #[rstest]
@@ -871,22 +870,10 @@ mod optimizer_metrics_tests {
         let mut metrics = OptimizerMetrics::default();
 
         metrics.collect_metric(Metric::CorpusLenght(100.0));
-        metrics.collect_metric(Metric::Unigram(
-            Unigram::new(qwerty.key_for('a').unwrap()),
-            1.0,
-        ));
-        metrics.collect_metric(Metric::Unigram(
-            Unigram::new(qwerty.key_for('q').unwrap()),
-            2.0,
-        ));
-        metrics.collect_metric(Metric::Unigram(
-            Unigram::new(qwerty.key_for('z').unwrap()),
-            1.0,
-        ));
-        metrics.collect_metric(Metric::Unigram(
-            Unigram::new(qwerty.key_for('"').unwrap()),
-            1.0,
-        ));
+        metrics.collect_metric(Metric::Unigram(ngram!(qwerty, 'a'), 1.0));
+        metrics.collect_metric(Metric::Unigram(ngram!(qwerty, 'q'), 2.0));
+        metrics.collect_metric(Metric::Unigram(ngram!(qwerty, 'z'), 1.0));
+        metrics.collect_metric(Metric::Unigram(ngram!(qwerty, '"'), 1.0));
 
         check!(metrics.total_chars == 100.0);
         check!(metrics.effort == 9.0);
@@ -898,22 +885,10 @@ mod optimizer_metrics_tests {
     fn it_collects_bigram_skips_and_stretches(qwerty: Layout) {
         let mut metrics = OptimizerMetrics::default();
 
-        metrics.collect_metric(Metric::Bigram(
-            Bigram::new(qwerty.key_for('q').unwrap(), qwerty.key_for('a').unwrap()),
-            10.0,
-        ));
-        metrics.collect_metric(Metric::Bigram(
-            Bigram::new(qwerty.key_for('q').unwrap(), qwerty.key_for('z').unwrap()),
-            20.0,
-        ));
-        metrics.collect_metric(Metric::Bigram(
-            Bigram::new(qwerty.key_for('d').unwrap(), qwerty.key_for('g').unwrap()),
-            10.0,
-        ));
-        metrics.collect_metric(Metric::Bigram(
-            Bigram::new(qwerty.key_for('s').unwrap(), qwerty.key_for('"').unwrap()),
-            20.0,
-        ));
+        metrics.collect_metric(Metric::Bigram(ngram!(qwerty, 'q', 'a'), 10.0));
+        metrics.collect_metric(Metric::Bigram(ngram!(qwerty, 'q', 'z'), 20.0));
+        metrics.collect_metric(Metric::Bigram(ngram!(qwerty, 'd', 'g'), 10.0));
+        metrics.collect_metric(Metric::Bigram(ngram!(qwerty, 's', '"'), 20.0));
 
         check!(metrics.bigram_skips_1 == 10.0);
         check!(metrics.bigram_skips_n == 20.0);
@@ -924,14 +899,8 @@ mod optimizer_metrics_tests {
     fn it_collects_bigram_scissors(qwerty: Layout) {
         let mut metrics = OptimizerMetrics::default();
 
-        metrics.collect_metric(Metric::Bigram(
-            Bigram::new(qwerty.key_for('d').unwrap(), qwerty.key_for('t').unwrap()),
-            10.0,
-        ));
-        metrics.collect_metric(Metric::Bigram(
-            Bigram::new(qwerty.key_for('d').unwrap(), qwerty.key_for('r').unwrap()),
-            20.0,
-        ));
+        metrics.collect_metric(Metric::Bigram(ngram!(qwerty, 'd', 't'), 10.0));
+        metrics.collect_metric(Metric::Bigram(ngram!(qwerty, 'd', 'r'), 20.0));
 
         check!(metrics.bigram_wide_scissors == 10.0);
         check!(metrics.bigram_scissors == 20.0);
@@ -941,22 +910,8 @@ mod optimizer_metrics_tests {
     fn it_collects_trigram_skips(qwerty: Layout) {
         let mut metrics = OptimizerMetrics::default();
 
-        metrics.collect_metric(Metric::Trigram(
-            Trigram::new(
-                qwerty.key_for('q').unwrap(),
-                qwerty.key_for('w').unwrap(),
-                qwerty.key_for('a').unwrap(),
-            ),
-            10.0,
-        ));
-        metrics.collect_metric(Metric::Trigram(
-            Trigram::new(
-                qwerty.key_for('q').unwrap(),
-                qwerty.key_for('h').unwrap(),
-                qwerty.key_for('a').unwrap(),
-            ),
-            20.0,
-        ));
+        metrics.collect_metric(Metric::Trigram(ngram!(qwerty, 'q', 'w', 'a'), 10.0));
+        metrics.collect_metric(Metric::Trigram(ngram!(qwerty, 'q', 'h', 'a'), 20.0));
 
         check!(metrics.trigram_same_hand_skips == 10.0);
         check!(metrics.trigram_alternation_skips == 20.0);
@@ -966,38 +921,10 @@ mod optimizer_metrics_tests {
     fn it_collects_trigram_rolls(qwerty: Layout) {
         let mut metrics = OptimizerMetrics::default();
 
-        metrics.collect_metric(Metric::Trigram(
-            Trigram::new(
-                qwerty.key_for('q').unwrap(),
-                qwerty.key_for('w').unwrap(),
-                qwerty.key_for('e').unwrap(),
-            ),
-            10.0,
-        ));
-        metrics.collect_metric(Metric::Trigram(
-            Trigram::new(
-                qwerty.key_for('t').unwrap(),
-                qwerty.key_for('e').unwrap(),
-                qwerty.key_for('q').unwrap(),
-            ),
-            20.0,
-        ));
-        metrics.collect_metric(Metric::Trigram(
-            Trigram::new(
-                qwerty.key_for('q').unwrap(),
-                qwerty.key_for('w').unwrap(),
-                qwerty.key_for('p').unwrap(),
-            ),
-            30.0,
-        ));
-        metrics.collect_metric(Metric::Trigram(
-            Trigram::new(
-                qwerty.key_for('t').unwrap(),
-                qwerty.key_for('e').unwrap(),
-                qwerty.key_for('p').unwrap(),
-            ),
-            40.0,
-        ));
+        metrics.collect_metric(Metric::Trigram(ngram!(qwerty, 'q', 'w', 'e'), 10.0));
+        metrics.collect_metric(Metric::Trigram(ngram!(qwerty, 't', 'e', 'q'), 20.0));
+        metrics.collect_metric(Metric::Trigram(ngram!(qwerty, 'q', 'w', 'p'), 30.0));
+        metrics.collect_metric(Metric::Trigram(ngram!(qwerty, 't', 'e', 'p'), 40.0));
 
         check!(metrics.trigram_roll_in == 10.0);
         check!(metrics.trigram_roll_out == 20.0);
@@ -1007,30 +934,9 @@ mod optimizer_metrics_tests {
     fn it_collects_trigram_redirects_and_alternations(qwerty: Layout) {
         let mut metrics = OptimizerMetrics::default();
 
-        metrics.collect_metric(Metric::Trigram(
-            Trigram::new(
-                qwerty.key_for('q').unwrap(),
-                qwerty.key_for('t').unwrap(),
-                qwerty.key_for('e').unwrap(),
-            ),
-            10.0,
-        ));
-        metrics.collect_metric(Metric::Trigram(
-            Trigram::new(
-                qwerty.key_for('q').unwrap(),
-                qwerty.key_for('e').unwrap(),
-                qwerty.key_for('w').unwrap(),
-            ),
-            20.0,
-        ));
-        metrics.collect_metric(Metric::Trigram(
-            Trigram::new(
-                qwerty.key_for('q').unwrap(),
-                qwerty.key_for('h').unwrap(),
-                qwerty.key_for('w').unwrap(),
-            ),
-            30.0,
-        ));
+        metrics.collect_metric(Metric::Trigram(ngram!(qwerty, 'q', 't', 'e'), 10.0));
+        metrics.collect_metric(Metric::Trigram(ngram!(qwerty, 'q', 'e', 'w'), 20.0));
+        metrics.collect_metric(Metric::Trigram(ngram!(qwerty, 'q', 'h', 'w'), 30.0));
 
         check!(metrics.trigram_redirects_weak == 10.0);
         check!(metrics.trigram_redirects_strong == 20.0);
