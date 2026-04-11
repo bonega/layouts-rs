@@ -12,7 +12,7 @@ use crate::{
     layout::{FingerKind, Hand, Layout},
     matrix::Pos,
     ngrams::{BigramKind, TrigramKind},
-    swaps::SwapMove,
+    swaps::{SwapMove, SwapMoveBuilder, SwapMoveStrategy},
 };
 
 const MAX_PERTURB_ATTEMPTS: usize = 30;
@@ -307,19 +307,23 @@ struct OptimizableLayout {
 }
 
 impl OptimizableLayout {
-    pub fn new(layout: Layout, pinned_chars: HashSet<char>, max_swapped: Option<usize>) -> Self {
+    pub fn new(
+        layout: Layout,
+        pinned_chars: HashSet<char>,
+        max_swapped: Option<usize>,
+        swap_move_builder: SwapMoveBuilder,
+    ) -> Self {
         let positions: Vec<Pos> = layout
             .keys()
             .filter(|key| !pinned_chars.contains(&key.ch))
             .map(|key| key.position)
             .collect();
-        let swap_moves = Arc::new(SwapMove::all_moves(&positions));
 
         Self {
             initial_layout: layout.clone(),
             layout,
             max_swapped,
-            swap_moves,
+            swap_moves: Arc::new(swap_move_builder.build(&positions)),
         }
     }
 
@@ -444,7 +448,12 @@ impl Optimizer for HillClimbOptimizer {
             StdRng::from_rng(&mut rng())
         };
 
-        let mut best_layout = OptimizableLayout::new(layout.clone(), opts.pinned, opts.max_swapped);
+        let mut best_layout = OptimizableLayout::new(
+            layout.clone(),
+            opts.pinned,
+            opts.max_swapped,
+            SwapMoveBuilder::full(),
+        );
 
         if opts.shuffle {
             best_layout.shuffle(&mut rng, 100);
@@ -518,7 +527,12 @@ impl Optimizer for SimulatedAnnealingOptimizer {
             StdRng::from_rng(&mut rng())
         };
 
-        let mut best_layout = OptimizableLayout::new(layout.clone(), opts.pinned, opts.max_swapped);
+        let mut best_layout = OptimizableLayout::new(
+            layout.clone(),
+            opts.pinned,
+            opts.max_swapped,
+            SwapMoveBuilder::new(&[SwapMoveStrategy::Single]),
+        );
 
         if opts.shuffle {
             best_layout.shuffle(&mut rng, 100);
@@ -698,7 +712,8 @@ mod optimizable_layout_tests {
 
     #[test]
     fn it_does_not_improve_layout_when_no_swap_gives_better_score() {
-        let mut optimizable = OptimizableLayout::new(make_layout(), [].into(), None);
+        let mut optimizable =
+            OptimizableLayout::new(make_layout(), [].into(), None, SwapMoveBuilder::full());
         let result = optimizable.try_improve(|layout| {
             let score = layout_effort_score(layout);
             if score < 0.0 { Some(score) } else { None }
@@ -708,8 +723,21 @@ mod optimizable_layout_tests {
     }
 
     #[test]
+    fn it_does_not_improve_layout_if_no_swaps_available() {
+        let mut optimizable =
+            OptimizableLayout::new(make_layout(), [].into(), None, SwapMoveBuilder::default());
+        let result = optimizable.try_improve(|layout| {
+            let score = layout.key_for('c').unwrap().effort;
+            if score < 100.0 { Some(score) } else { None }
+        });
+
+        check!(result == None);
+    }
+
+    #[test]
     fn it_improves_layout_by_applying_the_best_swap() {
-        let mut optimizable = OptimizableLayout::new(make_layout(), [].into(), None);
+        let mut optimizable =
+            OptimizableLayout::new(make_layout(), [].into(), None, SwapMoveBuilder::full());
         let score = optimizable
             .try_improve(|layout| {
                 let score = layout.key_for('c').unwrap().effort;
@@ -723,7 +751,12 @@ mod optimizable_layout_tests {
 
     #[test]
     fn it_improves_layout_without_moving_pinned_chars() {
-        let mut optimizable = OptimizableLayout::new(make_layout(), ['a', 'c'].into(), None);
+        let mut optimizable = OptimizableLayout::new(
+            make_layout(),
+            ['a', 'c'].into(),
+            None,
+            SwapMoveBuilder::full(),
+        );
 
         while optimizable
             .try_improve(|layout| {
@@ -740,7 +773,12 @@ mod optimizable_layout_tests {
 
     #[test]
     fn it_does_not_improve_layout_when_only_one_char_is_unpinned() {
-        let mut optimizable = OptimizableLayout::new(make_layout(), ['a', 'b', 'c'].into(), None);
+        let mut optimizable = OptimizableLayout::new(
+            make_layout(),
+            ['a', 'b', 'c'].into(),
+            None,
+            SwapMoveBuilder::full(),
+        );
         let result = optimizable.try_improve(|layout| {
             let score = layout.key_for('d').unwrap().effort;
             if score < 200.0 { Some(score) } else { None }
@@ -751,7 +789,8 @@ mod optimizable_layout_tests {
 
     #[test]
     fn it_does_not_improve_layout_when_swap_exceeds_max_swapped() {
-        let mut optimizable = OptimizableLayout::new(make_layout(), [].into(), Some(0));
+        let mut optimizable =
+            OptimizableLayout::new(make_layout(), [].into(), Some(0), SwapMoveBuilder::full());
         let result = optimizable.try_improve(|layout| {
             let score = layout.key_for('c').unwrap().effort;
             if score < 100.0 { Some(score) } else { None }
@@ -762,7 +801,8 @@ mod optimizable_layout_tests {
 
     #[test]
     fn it_improves_layout_when_swap_is_within_max_swapped() {
-        let mut optimizable = OptimizableLayout::new(make_layout(), [].into(), Some(2));
+        let mut optimizable =
+            OptimizableLayout::new(make_layout(), [].into(), Some(2), SwapMoveBuilder::full());
         let score = optimizable
             .try_improve(|layout| {
                 let score = layout.key_for('c').unwrap().effort;
@@ -776,7 +816,8 @@ mod optimizable_layout_tests {
 
     #[test]
     fn it_does_not_improve_layout_after_convergence() {
-        let mut optimizable = OptimizableLayout::new(make_layout(), [].into(), None);
+        let mut optimizable =
+            OptimizableLayout::new(make_layout(), [].into(), None, SwapMoveBuilder::full());
 
         let first = optimizable.try_improve(|layout| {
             let score = layout.key_for('c').unwrap().effort;
@@ -793,7 +834,8 @@ mod optimizable_layout_tests {
 
     #[test]
     fn it_perturbs_layout() {
-        let mut optimizable = OptimizableLayout::new(make_layout(), [].into(), None);
+        let mut optimizable =
+            OptimizableLayout::new(make_layout(), [].into(), None, SwapMoveBuilder::full());
         let before: Vec<char> = optimizable.layout().keys().map(|k| k.ch).collect();
 
         let mut rng = StdRng::seed_from_u64(42);
@@ -805,8 +847,12 @@ mod optimizable_layout_tests {
 
     #[test]
     fn it_does_not_perturb_layout_when_all_chars_are_pinned() {
-        let mut optimizable =
-            OptimizableLayout::new(make_layout(), ['a', 'b', 'c', 'd'].into(), None);
+        let mut optimizable = OptimizableLayout::new(
+            make_layout(),
+            ['a', 'b', 'c', 'd'].into(),
+            None,
+            SwapMoveBuilder::full(),
+        );
         let before: Vec<char> = optimizable.layout().keys().map(|k| k.ch).collect();
 
         let mut rng = StdRng::seed_from_u64(42);
@@ -818,7 +864,8 @@ mod optimizable_layout_tests {
 
     #[test]
     fn it_does_not_perturb_layout_beyond_max_swapped() {
-        let mut optimizable = OptimizableLayout::new(make_layout(), [].into(), Some(0));
+        let mut optimizable =
+            OptimizableLayout::new(make_layout(), [].into(), Some(0), SwapMoveBuilder::full());
 
         let mut rng = StdRng::seed_from_u64(42);
         optimizable.perturb(&mut rng, 10);
@@ -828,7 +875,8 @@ mod optimizable_layout_tests {
 
     #[test]
     fn it_perturbs_layout_within_max_swapped() {
-        let mut optimizable = OptimizableLayout::new(make_layout(), [].into(), Some(4));
+        let mut optimizable =
+            OptimizableLayout::new(make_layout(), [].into(), Some(4), SwapMoveBuilder::full());
 
         let mut rng = StdRng::seed_from_u64(42);
         optimizable.perturb(&mut rng, 10);
@@ -839,7 +887,8 @@ mod optimizable_layout_tests {
 
     #[test]
     fn it_shuffles_layoyt_ignoring_max_swapped() {
-        let mut optimizable = OptimizableLayout::new(make_layout(), [].into(), Some(0));
+        let mut optimizable =
+            OptimizableLayout::new(make_layout(), [].into(), Some(0), SwapMoveBuilder::full());
         let before: Vec<char> = optimizable.layout().keys().map(|k| k.ch).collect();
 
         let mut rng = StdRng::seed_from_u64(42);

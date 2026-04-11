@@ -1,35 +1,67 @@
+use std::collections::HashSet;
+
 use crate::{layout::Layout, matrix::Pos};
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct SwapMove(pub Vec<(Pos, Pos)>);
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum SwapMoveStrategy {
+    Single,
+    Column,
+    Row,
+}
 
-impl SwapMove {
-    pub fn all_moves(positions: &[Pos]) -> Vec<Self> {
-        let mut moves = Self::single_moves(positions);
-        moves.extend(Self::column_moves(positions));
-        moves.extend(Self::row_moves(positions));
-        moves
+#[derive(Default)]
+pub struct SwapMoveBuilder {
+    strategies: HashSet<SwapMoveStrategy>,
+}
+
+impl SwapMoveBuilder {
+    pub fn full() -> Self {
+        Self::new(&[
+            SwapMoveStrategy::Single,
+            SwapMoveStrategy::Column,
+            SwapMoveStrategy::Row,
+        ])
     }
 
-    pub fn single_moves(positions: &[Pos]) -> Vec<Self> {
+    pub fn new(strategies: &[SwapMoveStrategy]) -> Self {
+        let mut builder = Self::default();
+        for strategy in strategies {
+            builder.strategies.insert(strategy.clone());
+        }
+        builder
+    }
+
+    pub fn build(&self, positions: &[Pos]) -> Vec<SwapMove> {
         let mut moves = Vec::new();
-        for (i, &p1) in positions.iter().enumerate() {
-            for &p2 in positions.iter().skip(i + 1) {
-                moves.push(Self(vec![(p1, p2)]));
+        for strategy in &self.strategies {
+            match strategy {
+                SwapMoveStrategy::Single => moves.extend(Self::single_moves(positions)),
+                SwapMoveStrategy::Column => moves.extend(Self::column_moves(positions)),
+                SwapMoveStrategy::Row => moves.extend(Self::row_moves(positions)),
             }
         }
         moves
     }
 
-    pub fn column_moves(positions: &[Pos]) -> Vec<Self> {
+    fn single_moves(positions: &[Pos]) -> Vec<SwapMove> {
+        let mut moves = Vec::new();
+        for (i, &p1) in positions.iter().enumerate() {
+            for &p2 in positions.iter().skip(i + 1) {
+                moves.push(SwapMove(vec![(p1, p2)]));
+            }
+        }
+        moves
+    }
+
+    fn column_moves(positions: &[Pos]) -> Vec<SwapMove> {
         Self::group_moves(positions, |pos| pos.c)
     }
 
-    pub fn row_moves(positions: &[Pos]) -> Vec<Self> {
+    fn row_moves(positions: &[Pos]) -> Vec<SwapMove> {
         Self::group_moves(positions, |pos| pos.r)
     }
 
-    fn group_moves(positions: &[Pos], key_fn: fn(Pos) -> usize) -> Vec<Self> {
+    fn group_moves(positions: &[Pos], key_fn: fn(Pos) -> usize) -> Vec<SwapMove> {
         use std::collections::BTreeMap;
 
         let mut groups: BTreeMap<usize, Vec<Pos>> = BTreeMap::new();
@@ -46,14 +78,19 @@ impl SwapMove {
                 let g2 = &groups[&k2];
                 let pairs: Vec<(Pos, Pos)> = g1.iter().copied().zip(g2.iter().copied()).collect();
                 if !pairs.is_empty() {
-                    moves.push(Self(pairs));
+                    moves.push(SwapMove(pairs));
                 }
             }
         }
 
         moves
     }
+}
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct SwapMove(pub Vec<(Pos, Pos)>);
+
+impl SwapMove {
     pub fn apply(&self, layout: &mut Layout) {
         for &(p1, p2) in &self.0 {
             layout.swap_chars(&p1, &p2);
@@ -72,7 +109,7 @@ mod single_moves_tests {
     #[test]
     fn it_builds() {
         let positions = vec![pos!(0, 0), pos!(1, 0), pos!(0, 1)];
-        let swap_moves = SwapMove::single_moves(&positions);
+        let swap_moves = SwapMoveBuilder::new(&[SwapMoveStrategy::Single]).build(&positions);
         check!(
             swap_moves
                 == vec![
@@ -85,13 +122,13 @@ mod single_moves_tests {
 
     #[test]
     fn it_builds_from_single_position() {
-        let swap_moves = SwapMove::single_moves(&[pos!(0, 0)]);
+        let swap_moves = SwapMoveBuilder::new(&[SwapMoveStrategy::Single]).build(&[pos!(0, 0)]);
         check!(swap_moves == vec![]);
     }
 
     #[test]
     fn it_builds_from_empty() {
-        let swap_moves = SwapMove::single_moves(&[]);
+        let swap_moves = SwapMoveBuilder::new(&[SwapMoveStrategy::Single]).build(&[]);
         check!(swap_moves == vec![]);
     }
 
@@ -147,7 +184,7 @@ mod column_moves_tests {
     #[test]
     fn it_builds() {
         let positions = vec![pos!(0, 0), pos!(1, 0), pos!(0, 1), pos!(1, 1)];
-        let col_moves = SwapMove::column_moves(&positions);
+        let col_moves = SwapMoveBuilder::new(&[SwapMoveStrategy::Column]).build(&positions);
         check!(
             col_moves
                 == vec![SwapMove(vec![
@@ -167,7 +204,7 @@ mod column_moves_tests {
             pos!(0, 2),
             pos!(1, 2),
         ];
-        let col_moves = SwapMove::column_moves(&positions);
+        let col_moves = SwapMoveBuilder::new(&[SwapMoveStrategy::Column]).build(&positions);
         check!(
             col_moves
                 == vec![
@@ -188,7 +225,7 @@ mod column_moves_tests {
             pos!(1, 1),
             pos!(2, 1),
         ];
-        let col_moves = SwapMove::column_moves(&positions);
+        let col_moves = SwapMoveBuilder::new(&[SwapMoveStrategy::Column]).build(&positions);
         check!(
             col_moves
                 == vec![SwapMove(vec![
@@ -202,7 +239,7 @@ mod column_moves_tests {
     #[test]
     fn it_builds_zips_to_shorter_column() {
         let positions = vec![pos!(0, 0), pos!(1, 0), pos!(2, 0), pos!(0, 1), pos!(1, 1)];
-        let col_moves = SwapMove::column_moves(&positions);
+        let col_moves = SwapMoveBuilder::new(&[SwapMoveStrategy::Column]).build(&positions);
         check!(
             col_moves
                 == vec![SwapMove(vec![
@@ -215,13 +252,13 @@ mod column_moves_tests {
     #[test]
     fn it_builds_from_single_column() {
         let positions = vec![pos!(0, 0), pos!(1, 0)];
-        let col_moves = SwapMove::column_moves(&positions);
+        let col_moves = SwapMoveBuilder::new(&[SwapMoveStrategy::Column]).build(&positions);
         check!(col_moves == vec![]);
     }
 
     #[test]
     fn it_builds_from_empty() {
-        let col_moves = SwapMove::column_moves(&[]);
+        let col_moves = SwapMoveBuilder::new(&[SwapMoveStrategy::Column]).build(&[]);
         check!(col_moves == vec![]);
     }
 
@@ -281,7 +318,7 @@ mod row_moves_tests {
     #[test]
     fn it_builds() {
         let positions = vec![pos!(0, 0), pos!(0, 1), pos!(1, 0), pos!(1, 1)];
-        let row_moves = SwapMove::row_moves(&positions);
+        let row_moves = SwapMoveBuilder::new(&[SwapMoveStrategy::Row]).build(&positions);
         check!(
             row_moves
                 == vec![SwapMove(vec![
@@ -301,7 +338,7 @@ mod row_moves_tests {
             pos!(2, 0),
             pos!(2, 1),
         ];
-        let row_moves = SwapMove::row_moves(&positions);
+        let row_moves = SwapMoveBuilder::new(&[SwapMoveStrategy::Row]).build(&positions);
         check!(
             row_moves
                 == vec![
@@ -322,7 +359,7 @@ mod row_moves_tests {
             pos!(1, 1),
             pos!(1, 2),
         ];
-        let row_moves = SwapMove::row_moves(&positions);
+        let row_moves = SwapMoveBuilder::new(&[SwapMoveStrategy::Row]).build(&positions);
         check!(
             row_moves
                 == vec![SwapMove(vec![
@@ -336,7 +373,7 @@ mod row_moves_tests {
     #[test]
     fn it_builds_zips_to_shorter_row() {
         let positions = vec![pos!(0, 0), pos!(0, 1), pos!(0, 2), pos!(1, 0), pos!(1, 1)];
-        let row_moves = SwapMove::row_moves(&positions);
+        let row_moves = SwapMoveBuilder::new(&[SwapMoveStrategy::Row]).build(&positions);
         check!(
             row_moves
                 == vec![SwapMove(vec![
@@ -349,13 +386,13 @@ mod row_moves_tests {
     #[test]
     fn it_builds_from_single_row() {
         let positions = vec![pos!(0, 0), pos!(0, 1)];
-        let row_moves = SwapMove::row_moves(&positions);
+        let row_moves = SwapMoveBuilder::new(&[SwapMoveStrategy::Row]).build(&positions);
         check!(row_moves == vec![]);
     }
 
     #[test]
     fn it_builds_from_empty() {
-        let row_moves = SwapMove::row_moves(&[]);
+        let row_moves = SwapMoveBuilder::new(&[SwapMoveStrategy::Row]).build(&[]);
         check!(row_moves == vec![]);
     }
 
