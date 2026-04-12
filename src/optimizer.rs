@@ -1,6 +1,5 @@
 use std::cmp::Ordering;
 use std::collections::HashSet;
-use std::fmt::Display;
 use std::sync::Arc;
 
 use rand::{Rng, prelude::*, rng, rngs::StdRng};
@@ -8,10 +7,11 @@ use rayon::prelude::*;
 use serde::Deserialize;
 
 use crate::{
-    analyzer::{Analyzer, Metric, Metrics},
-    layout::{FingerKind, Hand, Layout},
+    analyzer::Analyzer,
+    layout::Layout,
     matrix::Pos,
-    ngrams::{BigramKind, TrigramKind},
+    metrics::SimpleMetrics,
+    stats::SimpleStats,
     swaps::{SwapMove, SwapMoveBuilder, SwapMoveStrategy},
 };
 
@@ -78,64 +78,7 @@ impl Target {
     }
 }
 
-#[derive(Default)]
-struct OptimizerMetrics {
-    total_chars: f64,
-    effort: f64,
-    left_hand: f64,
-    pinky_off_home: f64,
-    bigram_skips_1: f64,
-    bigram_skips_n: f64,
-    bigram_lateral_stretches: f64,
-    bigram_scissors: f64,
-    bigram_wide_scissors: f64,
-    trigram_skips_same_hand: f64,
-    trigram_skips_same_hand_1: f64,
-    trigram_skips_same_hand_n: f64,
-    trigram_skips_alternation: f64,
-    trigram_skips_alternation_1: f64,
-    trigram_skips_alternation_n: f64,
-    trigram_lateral_stretches_same_hand: f64,
-    trigram_lateral_stretches_alternation: f64,
-    trigram_scissors_same_hand_1: f64,
-    trigram_scissors_same_hand_n: f64,
-    trigram_scissors_alternation_1: f64,
-    trigram_scissors_alternation_n: f64,
-    trigram_roll_in: f64,
-    trigram_roll_out: f64,
-    trigram_redirects_weak: f64,
-    trigram_redirects_strong: f64,
-    trigram_alternations: f64,
-}
-
-struct OptimizerStats {
-    effort: f64,
-    left_hand_usage: f64,
-    pinky_off_home: f64,
-    bigram_skips_1: f64,
-    bigram_skips_n: f64,
-    bigram_lateral_stretches: f64,
-    bigram_scissors: f64,
-    bigram_wide_scissors: f64,
-    trigram_skips_same_hand: f64,
-    trigram_skips_same_hand_1: f64,
-    trigram_skips_same_hand_n: f64,
-    trigram_skips_alternation: f64,
-    trigram_skips_alternation_1: f64,
-    trigram_skips_alternation_n: f64,
-    trigram_lateral_stretches_same_hand: f64,
-    trigram_lateral_stretches_alternation: f64,
-    trigram_scissors_same_hand_1: f64,
-    trigram_scissors_same_hand_n: f64,
-    trigram_scissors_alternation_1: f64,
-    trigram_scissors_alternation_n: f64,
-    trigram_roll_ratio: f64,
-    trigram_redirects_weak: f64,
-    trigram_redirects_strong: f64,
-    trigram_alternations: f64,
-}
-
-impl OptimizerStats {
+impl SimpleStats {
     fn score(&self, targets: &Targets) -> f64 {
         targets.effort.score(self.effort)
             + targets.left_hand_usage.score(self.left_hand_usage)
@@ -155,7 +98,7 @@ impl OptimizerStats {
             + targets
                 .trigram_skips_alternation
                 .score(self.trigram_skips_alternation)
-            + targets.trigram_roll_ratio.score(self.trigram_roll_ratio)
+            + targets.trigram_roll_ratio.score(self.trigram_roll_ratio())
             + targets
                 .trigram_redirects_weak
                 .score(self.trigram_redirects_weak)
@@ -165,218 +108,6 @@ impl OptimizerStats {
             + targets
                 .trigram_alternations
                 .score(self.trigram_alternations)
-    }
-}
-
-impl From<OptimizerMetrics> for OptimizerStats {
-    fn from(metrics: OptimizerMetrics) -> Self {
-        let pct = 100.0 / metrics.total_chars;
-
-        let effort = pct * metrics.effort;
-        let left_hand_usage = pct * metrics.left_hand;
-        let pinky_off_home = pct * metrics.pinky_off_home;
-        let bigram_skips_1 = pct * metrics.bigram_skips_1;
-        let bigram_skips_n = pct * metrics.bigram_skips_n;
-        let bigram_lateral_stretches = pct * metrics.bigram_lateral_stretches;
-        let bigram_scissors = pct * metrics.bigram_scissors;
-        let bigram_wide_scissors = pct * metrics.bigram_wide_scissors;
-        let trigram_skips_same_hand = pct * metrics.trigram_skips_same_hand;
-        let trigram_skips_same_hand_1 = pct * metrics.trigram_skips_same_hand_1;
-        let trigram_skips_same_hand_n = pct * metrics.trigram_skips_same_hand_n;
-        let trigram_skips_alternation = pct * metrics.trigram_skips_alternation;
-        let trigram_skips_alternation_1 = pct * metrics.trigram_skips_alternation_1;
-        let trigram_skips_alternation_n = pct * metrics.trigram_skips_alternation_n;
-        let trigram_lateral_stretches_same_hand = pct * metrics.trigram_lateral_stretches_same_hand;
-        let trigram_lateral_stretches_alternation =
-            pct * metrics.trigram_lateral_stretches_alternation;
-        let trigram_scissors_same_hand_1 = pct * metrics.trigram_scissors_same_hand_1;
-        let trigram_scissors_same_hand_n = pct * metrics.trigram_scissors_same_hand_n;
-        let trigram_scissors_alternation_1 = pct * metrics.trigram_scissors_alternation_1;
-        let trigram_scissors_alternation_n = pct * metrics.trigram_scissors_alternation_n;
-
-        let total_roll = metrics.trigram_roll_in + metrics.trigram_roll_out;
-
-        let trigram_roll_ratio = if total_roll > 0.0 {
-            100.0 * metrics.trigram_roll_in / total_roll
-        } else {
-            50.0
-        };
-
-        let trigram_redirects_weak = pct * metrics.trigram_redirects_weak;
-        let trigram_redirects_strong = pct * metrics.trigram_redirects_strong;
-        let trigram_alternations = pct * metrics.trigram_alternations;
-
-        Self {
-            effort,
-            left_hand_usage,
-            pinky_off_home,
-            bigram_skips_1,
-            bigram_skips_n,
-            bigram_lateral_stretches,
-            bigram_scissors,
-            bigram_wide_scissors,
-            trigram_skips_same_hand,
-            trigram_skips_same_hand_1,
-            trigram_skips_same_hand_n,
-            trigram_skips_alternation,
-            trigram_skips_alternation_1,
-            trigram_skips_alternation_n,
-            trigram_lateral_stretches_same_hand,
-            trigram_lateral_stretches_alternation,
-            trigram_scissors_same_hand_1,
-            trigram_scissors_same_hand_n,
-            trigram_scissors_alternation_1,
-            trigram_scissors_alternation_n,
-            trigram_roll_ratio,
-            trigram_redirects_weak,
-            trigram_redirects_strong,
-            trigram_alternations,
-        }
-    }
-}
-
-impl Display for OptimizerStats {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Eff:{:.2}% LHu:{:.2}% PkOH:{:.2}% | \
-             Sk1:{:.2}% SkN:{:.2}% LS:{:.2}% | \
-             Sci:{:.2}% WSci:{:.2}% | \
-             SHSk:{:.2}% SHSk1:{:.2}% SHSkN:{:.2}% ASk:{:.2}% ASk1:{:.2}% ASkN:{:.2}% | \
-             SHLS:{:.2}% ALS:{:.2}% | \
-             SHSci1:{:.2}% SHSciN:{:.2}% ASci1:{:.2}% ASciN:{:.2}% | \
-             RRat:{:.2}% RedW:{:.2}% RedS:{:.2}% Alt:{:.2}%",
-            self.effort,
-            self.left_hand_usage,
-            self.pinky_off_home,
-            self.bigram_skips_1,
-            self.bigram_skips_n,
-            self.bigram_lateral_stretches,
-            self.bigram_scissors,
-            self.bigram_wide_scissors,
-            self.trigram_skips_same_hand,
-            self.trigram_skips_same_hand_1,
-            self.trigram_skips_same_hand_n,
-            self.trigram_skips_alternation,
-            self.trigram_skips_alternation_1,
-            self.trigram_skips_alternation_n,
-            self.trigram_lateral_stretches_same_hand,
-            self.trigram_lateral_stretches_alternation,
-            self.trigram_scissors_same_hand_1,
-            self.trigram_scissors_same_hand_n,
-            self.trigram_scissors_alternation_1,
-            self.trigram_scissors_alternation_n,
-            self.trigram_roll_ratio,
-            self.trigram_redirects_weak,
-            self.trigram_redirects_strong,
-            self.trigram_alternations,
-        )
-    }
-}
-
-impl Metrics for OptimizerMetrics {
-    fn collect_metric(&mut self, metric: Metric) {
-        match metric {
-            Metric::CorpusLenght(chars) => {
-                self.total_chars = chars;
-            }
-            Metric::Unigram(unigram, count) => {
-                self.effort += unigram.key.effort * count;
-
-                if unigram.key.finger.hand == Hand::Left {
-                    self.left_hand += count;
-                }
-
-                if unigram.key.finger.kind == FingerKind::Pinky && !unigram.key.finger_home {
-                    self.pinky_off_home += count;
-                }
-            }
-            Metric::Bigram(bigram, count) => {
-                for kind in bigram.kinds {
-                    match kind {
-                        BigramKind::SameFingerSkip { units } => {
-                            if units == 1 {
-                                self.bigram_skips_1 += count;
-                            } else {
-                                self.bigram_skips_n += count;
-                            }
-                        }
-                        BigramKind::LateralStretch { .. } => {
-                            self.bigram_lateral_stretches += count;
-                        }
-                        BigramKind::Scissor { units, .. } => {
-                            if units >= 2 {
-                                self.bigram_wide_scissors += count;
-                            } else {
-                                self.bigram_scissors += count;
-                            }
-                        }
-                        BigramKind::Other => {}
-                    }
-                }
-            }
-            Metric::Trigram(trigram, count) => {
-                for kind in trigram.kinds {
-                    match kind {
-                        TrigramKind::SameFingerSkip { units, same_hand } => {
-                            if same_hand {
-                                self.trigram_skips_same_hand += count;
-                                if units == 1 {
-                                    self.trigram_skips_same_hand_1 += count;
-                                } else {
-                                    self.trigram_skips_same_hand_n += count;
-                                }
-                            } else {
-                                self.trigram_skips_alternation += count;
-                                if units == 1 {
-                                    self.trigram_skips_alternation_1 += count;
-                                } else {
-                                    self.trigram_skips_alternation_n += count;
-                                }
-                            }
-                        }
-                        TrigramKind::Roll { triple, inward } => match (triple, inward) {
-                            (true, true) => self.trigram_roll_in += count,
-                            (true, false) => self.trigram_roll_out += count,
-                            (false, true) | (false, false) => {}
-                        },
-                        TrigramKind::Redirect { weak } => {
-                            if weak {
-                                self.trigram_redirects_weak += count;
-                            } else {
-                                self.trigram_redirects_strong += count;
-                            }
-                        }
-                        TrigramKind::Alternation => {
-                            self.trigram_alternations += count;
-                        }
-                        TrigramKind::Other => {}
-                        TrigramKind::LateralStretch { same_hand, .. } => {
-                            if same_hand {
-                                self.trigram_lateral_stretches_same_hand += count;
-                            } else {
-                                self.trigram_lateral_stretches_alternation += count;
-                            }
-                        }
-                        TrigramKind::Scissor {
-                            units, same_hand, ..
-                        } => {
-                            if same_hand {
-                                if units >= 2 {
-                                    self.trigram_scissors_same_hand_n += count;
-                                } else {
-                                    self.trigram_scissors_same_hand_1 += count;
-                                }
-                            } else if units >= 2 {
-                                self.trigram_scissors_alternation_n += count;
-                            } else {
-                                self.trigram_scissors_alternation_1 += count;
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -515,10 +246,10 @@ impl HillClimbOptimizer {
         Self { analyzer, targets }
     }
 
-    fn get_stats(&self, layout: &Layout) -> OptimizerStats {
-        let mut metrics = OptimizerMetrics::default();
+    fn get_stats(&self, layout: &Layout) -> SimpleStats {
+        let mut metrics = SimpleMetrics::default();
         self.analyzer.analyze(layout, &mut metrics);
-        OptimizerStats::from(metrics)
+        SimpleStats::from(metrics)
     }
 }
 
@@ -594,10 +325,10 @@ impl SimulatedAnnealingOptimizer {
         }
     }
 
-    fn get_stats(&self, layout: &Layout) -> OptimizerStats {
-        let mut metrics = OptimizerMetrics::default();
+    fn get_stats(&self, layout: &Layout) -> SimpleStats {
+        let mut metrics = SimpleMetrics::default();
         self.analyzer.analyze(layout, &mut metrics);
-        OptimizerStats::from(metrics)
+        SimpleStats::from(metrics)
     }
 }
 
@@ -986,160 +717,25 @@ mod optimizable_layout_tests {
 }
 
 #[cfg(test)]
-mod optimizer_metrics_tests {
-    use assert2::check;
-    use rstest::rstest;
-
-    use super::*;
-    use crate::{
-        analyzer::Metric,
-        layout::{Layout, fixtures::qwerty},
-    };
-
-    #[rstest]
-    fn it_collects_unigram_metrics(qwerty: Layout) {
-        let mut metrics = OptimizerMetrics::default();
-
-        metrics.collect_metric(Metric::CorpusLenght(100.0));
-        metrics.collect_metric(Metric::Unigram(ngram!(qwerty, 'a'), 1.0));
-        metrics.collect_metric(Metric::Unigram(ngram!(qwerty, 'q'), 2.0));
-        metrics.collect_metric(Metric::Unigram(ngram!(qwerty, 'z'), 1.0));
-        metrics.collect_metric(Metric::Unigram(ngram!(qwerty, '"'), 1.0));
-
-        check!(metrics.total_chars == 100.0);
-        check!(metrics.effort == 9.0);
-        check!(metrics.left_hand == 5.0);
-        check!(metrics.pinky_off_home == 4.0);
-    }
-
-    #[rstest]
-    fn it_collects_bigram_skips_and_stretches(qwerty: Layout) {
-        let mut metrics = OptimizerMetrics::default();
-
-        metrics.collect_metric(Metric::Bigram(ngram!(qwerty, 'q', 'a'), 10.0));
-        metrics.collect_metric(Metric::Bigram(ngram!(qwerty, 'q', 'z'), 20.0));
-        metrics.collect_metric(Metric::Bigram(ngram!(qwerty, 'd', 'g'), 10.0));
-        metrics.collect_metric(Metric::Bigram(ngram!(qwerty, 's', '"'), 20.0));
-
-        check!(metrics.bigram_skips_1 == 10.0);
-        check!(metrics.bigram_skips_n == 20.0);
-        check!(metrics.bigram_lateral_stretches == 30.0);
-    }
-
-    #[rstest]
-    fn it_collects_bigram_scissors(qwerty: Layout) {
-        let mut metrics = OptimizerMetrics::default();
-
-        metrics.collect_metric(Metric::Bigram(ngram!(qwerty, 'c', 'w'), 10.0));
-        metrics.collect_metric(Metric::Bigram(ngram!(qwerty, 'c', 's'), 20.0));
-
-        check!(metrics.bigram_wide_scissors == 10.0);
-        check!(metrics.bigram_scissors == 20.0);
-    }
-
-    #[rstest]
-    fn it_collects_trigram_skips(qwerty: Layout) {
-        let mut metrics = OptimizerMetrics::default();
-
-        metrics.collect_metric(Metric::Trigram(ngram!(qwerty, 'q', 'w', 'a'), 10.0));
-        metrics.collect_metric(Metric::Trigram(ngram!(qwerty, 'q', 'h', 'a'), 20.0));
-
-        check!(metrics.trigram_skips_same_hand == 10.0);
-        check!(metrics.trigram_skips_alternation == 20.0);
-    }
-
-    #[rstest]
-    fn it_collects_trigram_rolls(qwerty: Layout) {
-        let mut metrics = OptimizerMetrics::default();
-
-        metrics.collect_metric(Metric::Trigram(ngram!(qwerty, 'q', 'w', 'e'), 10.0));
-        metrics.collect_metric(Metric::Trigram(ngram!(qwerty, 't', 'e', 'q'), 20.0));
-        metrics.collect_metric(Metric::Trigram(ngram!(qwerty, 'q', 'w', 'p'), 30.0));
-        metrics.collect_metric(Metric::Trigram(ngram!(qwerty, 't', 'e', 'p'), 40.0));
-
-        check!(metrics.trigram_roll_in == 10.0);
-        check!(metrics.trigram_roll_out == 20.0);
-    }
-
-    #[rstest]
-    fn it_collects_trigram_redirects_and_alternations(qwerty: Layout) {
-        let mut metrics = OptimizerMetrics::default();
-
-        metrics.collect_metric(Metric::Trigram(ngram!(qwerty, 'q', 't', 'e'), 10.0));
-        metrics.collect_metric(Metric::Trigram(ngram!(qwerty, 'q', 'e', 'w'), 20.0));
-        metrics.collect_metric(Metric::Trigram(ngram!(qwerty, 'q', 'h', 'w'), 30.0));
-
-        check!(metrics.trigram_redirects_weak == 10.0);
-        check!(metrics.trigram_redirects_strong == 20.0);
-        check!(metrics.trigram_alternations == 30.0);
-    }
-}
-
-#[cfg(test)]
-mod optimizer_stats_tests {
+mod tests {
     use assert2::check;
 
     use super::*;
-
-    #[test]
-    fn it_builds_stats_from_metrics_and_targets() {
-        let metrics = OptimizerMetrics {
-            total_chars: 200.0,
-            effort: 10.0,
-            left_hand: 20.0,
-            pinky_off_home: 30.0,
-            bigram_skips_1: 40.0,
-            bigram_skips_n: 50.0,
-            bigram_lateral_stretches: 60.0,
-            bigram_scissors: 70.0,
-            bigram_wide_scissors: 80.0,
-            trigram_skips_same_hand: 90.0,
-            trigram_skips_same_hand_1: 30.0,
-            trigram_skips_same_hand_n: 60.0,
-            trigram_skips_alternation: 100.0,
-            trigram_skips_alternation_1: 40.0,
-            trigram_skips_alternation_n: 60.0,
-            trigram_roll_in: 10.0,
-            trigram_roll_out: 30.0,
-            trigram_redirects_weak: 130.0,
-            trigram_redirects_strong: 140.0,
-            trigram_alternations: 150.0,
-            ..Default::default()
-        };
-
-        let stats = OptimizerStats::from(metrics);
-
-        check!(stats.effort == 5.0);
-        check!(stats.left_hand_usage == 10.0);
-        check!(stats.pinky_off_home == 15.0);
-        check!(stats.bigram_skips_1 == 20.0);
-        check!(stats.bigram_skips_n == 25.0);
-        check!(stats.bigram_lateral_stretches == 30.0);
-        check!(stats.bigram_scissors == 35.0);
-        check!(stats.bigram_wide_scissors == 40.0);
-        check!(stats.trigram_skips_same_hand == 45.0);
-        check!(stats.trigram_skips_same_hand_1 == 15.0);
-        check!(stats.trigram_skips_same_hand_n == 30.0);
-        check!(stats.trigram_skips_alternation == 50.0);
-        check!(stats.trigram_skips_alternation_1 == 20.0);
-        check!(stats.trigram_skips_alternation_n == 30.0);
-        check!(stats.trigram_roll_ratio == 25.0);
-        check!(stats.trigram_redirects_weak == 65.0);
-        check!(stats.trigram_redirects_strong == 70.0);
-        check!(stats.trigram_alternations == 75.0);
-    }
 
     #[test]
     fn it_gives_the_right_score() {
-        let stats = OptimizerStats {
+        let stats = SimpleStats {
+            total_chars: 10.0,
             effort: 10.0,
             left_hand_usage: 10.0,
+            right_hand_usage: 90.0,
             pinky_off_home: 10.0,
             bigram_skips_1: 10.0,
             bigram_skips_n: 10.0,
             bigram_lateral_stretches: 10.0,
             bigram_scissors: 10.0,
             bigram_wide_scissors: 10.0,
+            bigram_others: 0.0,
             trigram_skips_same_hand: 10.0,
             trigram_skips_same_hand_1: 0.0,
             trigram_skips_same_hand_n: 0.0,
@@ -1152,10 +748,17 @@ mod optimizer_stats_tests {
             trigram_scissors_same_hand_n: 0.0,
             trigram_scissors_alternation_1: 0.0,
             trigram_scissors_alternation_n: 0.0,
-            trigram_roll_ratio: 10.0,
+            trigram_roll_in: 10.0,
+            trigram_roll_out: 90.0,
+            trigram_roll_in_bigrams: 20.0,
+            trigram_roll_out_bigrams: 40.0,
             trigram_redirects_weak: 10.0,
             trigram_redirects_strong: 10.0,
             trigram_alternations: 10.0,
+            trigram_others: 0.0,
+            finger_usage: [].into(),
+            row_usage: [].into(),
+            column_usage: [].into(),
         };
 
         let targets = Targets {

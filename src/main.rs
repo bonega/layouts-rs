@@ -7,8 +7,9 @@ use layouts_rs::{
     config::{Config, OptimizationConfig},
     corpus::Corpus,
     layout::Layout,
+    metrics::SimpleMetrics,
     optimizer::{self, Algorithm, HillClimbOptimizer, Optimizer, SimulatedAnnealingOptimizer},
-    report::{Report, ReportMetrics},
+    stats::SimpleStats,
 };
 
 #[derive(Parser)]
@@ -145,9 +146,9 @@ impl Command {
                 let optimizer = Self::select_optimizer(analyzer.clone(), &config.optimization);
                 let score = optimizer.score(&layout);
 
-                let mut report_metrics = ReportMetrics::default();
+                let mut report_metrics = SimpleMetrics::default();
                 analyzer.analyze(&layout, &mut report_metrics);
-                let report = Report::from(report_metrics);
+                let report = SimpleStats::from(report_metrics);
 
                 println!("Initial Layout:");
                 println!("{layout}");
@@ -165,9 +166,9 @@ impl Command {
                 let optimizer = Self::select_optimizer(analyzer.clone(), &config.optimization);
                 let optimized_layout = optimizer.optimize(&layout, args.run_options.clone().into());
 
-                let mut report_metrics = ReportMetrics::default();
+                let mut report_metrics = SimpleMetrics::default();
                 analyzer.analyze(&optimized_layout, &mut report_metrics);
-                let report = Report::from(report_metrics);
+                let report = SimpleStats::from(report_metrics);
                 let score = optimizer.score(&optimized_layout);
 
                 println!("Optimized Layout:");

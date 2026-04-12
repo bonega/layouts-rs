@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::{
     corpus::Corpus,
     layout::{Key, Layout},
+    metrics::{Metric, MetricsCollector},
     ngrams::{Bigram, Trigram, Unigram},
 };
 
@@ -52,7 +53,7 @@ impl Analyzer {
         Self { corpus }
     }
 
-    pub fn analyze(&self, layout: &Layout, metrics: &mut impl Metrics) {
+    pub fn analyze(&self, layout: &Layout, metrics: &mut impl MetricsCollector) {
         let lookup: KeyLookup = layout.keys().collect();
 
         metrics.collect_metric(Metric::CorpusLenght(self.corpus.chars_length));
@@ -87,26 +88,13 @@ impl Analyzer {
     }
 }
 
-#[cfg_attr(test, mockall::automock)]
-pub trait Metrics {
-    fn collect_metric(&mut self, metric: Metric);
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Metric {
-    Trigram(Trigram, f64),
-    Bigram(Bigram, f64),
-    Unigram(Unigram, f64),
-    CorpusLenght(f64),
-}
-
 #[cfg(test)]
 mod tests {
     use assert2::check;
     use mockall::predicate::eq;
     use rstest::rstest;
 
-    use crate::{corpus::Corpus, layout::fixtures::qwerty};
+    use crate::{corpus::Corpus, layout::fixtures::qwerty, metrics::MockMetricsCollector};
 
     use super::*;
 
@@ -120,7 +108,7 @@ mod tests {
             trigrams: [(('[', '[', '['), 10.0)].into(),
         };
 
-        let mut metrics = MockMetrics::new();
+        let mut metrics = MockMetricsCollector::new();
         metrics
             .expect_collect_metric()
             .with(eq(Metric::CorpusLenght(100.0)))
@@ -144,7 +132,7 @@ mod tests {
 
         let key = qwerty.key_for('a').unwrap();
 
-        let mut metrics = MockMetrics::new();
+        let mut metrics = MockMetricsCollector::new();
         metrics
             .expect_collect_metric()
             .with(eq(Metric::CorpusLenght(100.0)))
@@ -174,14 +162,14 @@ mod tests {
     #[rstest]
     fn it_generates_metrics(qwerty: Layout) {
         #[derive(Default, Debug, PartialEq)]
-        struct FakeMetrics {
+        struct FakeMetricsCollector {
             total_chars: f64,
             unigrams: f64,
             bigrams: f64,
             trigrams: f64,
         }
 
-        impl Metrics for FakeMetrics {
+        impl MetricsCollector for FakeMetricsCollector {
             fn collect_metric(&mut self, metric: Metric) {
                 match metric {
                     Metric::Unigram(_, count) => {
@@ -208,7 +196,7 @@ mod tests {
             trigrams: [(('a', 'a', 'a'), 3.0)].into(),
         };
 
-        let mut fake_metrics = FakeMetrics::default();
+        let mut fake_metrics = FakeMetricsCollector::default();
 
         let analyzer = Analyzer::new(corpus);
 
@@ -216,7 +204,7 @@ mod tests {
 
         check!(
             fake_metrics
-                == FakeMetrics {
+                == FakeMetricsCollector {
                     unigrams: 1.0,
                     bigrams: 2.0,
                     trigrams: 3.0,
