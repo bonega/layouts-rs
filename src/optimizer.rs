@@ -1,7 +1,9 @@
 use std::cmp::Ordering;
 use std::collections::HashSet;
+use std::fmt;
 use std::sync::Arc;
 
+use log::{debug, info};
 use rand::{Rng, prelude::*, rngs::StdRng};
 use rayon::prelude::*;
 use serde::Deserialize;
@@ -224,6 +226,16 @@ pub struct RunOptions {
     pub shuffle: bool,
 }
 
+impl fmt::Display for RunOptions {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "iterations: {}, seed: {}, pinned: {:?}, max_swapped: {:?}, shuffle: {}",
+            self.iterations, self.seed, self.pinned, self.max_swapped, self.shuffle
+        )
+    }
+}
+
 pub trait Optimizer {
     fn optimize(&self, layout: &Layout, opts: RunOptions) -> Layout;
     fn score(&self, layout: &Layout) -> f64;
@@ -250,6 +262,8 @@ impl Optimizer for HillClimbOptimizer {
     fn optimize(&self, layout: &Layout, opts: RunOptions) -> Layout {
         let mut rng: StdRng = StdRng::seed_from_u64(opts.seed);
 
+        info!("Starting optimization with options: {opts}");
+
         let mut best_layout = OptimizableLayout::new(
             layout.clone(),
             opts.pinned,
@@ -272,17 +286,22 @@ impl Optimizer for HillClimbOptimizer {
 
             let mut current_score = self.score(&candidate.layout);
 
+            let mut step = 0;
             while let Some(best_iteration_score) = candidate.try_improve(|layout| {
                 let score = self.score(layout);
                 (score < current_score).then_some(score)
             }) {
                 current_score = best_iteration_score;
+                debug!("Step {step}, score: {current_score}");
+                step += 1;
             }
 
             if current_score < best_score {
                 best_score = current_score;
                 best_layout = candidate;
             }
+
+            info!("Iteration {iteration}, best score: {best_score}");
         }
 
         best_layout.layout().clone()
@@ -325,6 +344,8 @@ impl Optimizer for SimulatedAnnealingOptimizer {
     fn optimize(&self, layout: &Layout, opts: RunOptions) -> Layout {
         let mut rng: StdRng = StdRng::seed_from_u64(opts.seed);
 
+        info!("Starting optimization with options: {opts}");
+
         let mut best_layout = OptimizableLayout::new(
             layout.clone(),
             opts.pinned,
@@ -343,7 +364,7 @@ impl Optimizer for SimulatedAnnealingOptimizer {
         let mut temp = self.init_temp.max(1e-9);
         let mut stall = 0usize;
 
-        for _ in 0..opts.iterations {
+        for iteration in 0..opts.iterations {
             if current.swap_moves.is_empty() {
                 break;
             }
@@ -373,6 +394,8 @@ impl Optimizer for SimulatedAnnealingOptimizer {
             } else {
                 stall += 1;
             }
+
+            info!("Iteration {iteration}, best score: {best_score}");
 
             temp *= self.cooling;
 

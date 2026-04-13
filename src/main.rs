@@ -1,6 +1,7 @@
-use std::{collections::HashMap, fs, path::Path};
+use std::{collections::HashMap, fs, io::Write, path::Path};
 
 use clap::{Parser, Subcommand, ValueEnum};
+use log::{LevelFilter, ParseLevelError, info};
 
 use layouts_rs::{
     analyzer::Analyzer,
@@ -15,8 +16,14 @@ use rand::{Rng, rng};
 
 #[derive(Parser)]
 struct Cli {
+    #[arg(long, global = true, default_value = "info", value_parser = parse_level_filter)]
+    level: LevelFilter,
     #[command(subcommand)]
     command: Command,
+}
+
+fn parse_level_filter(level: &str) -> Result<LevelFilter, ParseLevelError> {
+    level.parse()
 }
 
 #[derive(Subcommand)]
@@ -170,16 +177,17 @@ impl Command {
                 let stats = SimpleStats::from(metrics);
                 let score = stats.score(&config.optimization.targets);
 
-                println!("Initial Layout:");
-                println!("{layout}");
-                println!("Optimization score: {score:.4}");
-                println!("{stats}");
+                info!("Layout:\n{layout}");
+                info!("Optimization score: {score:.4}");
+                info!("{stats}");
             }
             Command::Optimize(args) => {
                 let config = Config::load(Path::new(&args.common.config))?;
 
                 let layout = Layout::new(&args.common.layout, &config.layout)
                     .map_err(|e| anyhow::anyhow!("Failed to load layout: {e}"))?;
+
+                info!("Initial Layout:\n{layout}");
 
                 let corpus = args.common.corpus();
                 let analyzer = Analyzer::new(corpus);
@@ -195,10 +203,9 @@ impl Command {
                 let stats = SimpleStats::from(metrics);
                 let score = stats.score(&config.optimization.targets);
 
-                println!("Optimized Layout:");
-                println!("{optimized_layout}");
-                println!("Optimization score: {score:.4}");
-                println!("{stats}");
+                info!("Optimized Layout:\n{optimized_layout}");
+                info!("Optimization score: {score:.4}");
+                info!("{stats}");
             }
         }
         Ok(())
@@ -225,6 +232,14 @@ impl Command {
 
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
+    let env = env_logger::Env::default().default_filter_or(cli.level.as_str());
+    env_logger::Builder::from_env(env)
+        .format(|buf, record| {
+            let style = buf.default_level_style(record.level());
+            writeln!(buf, "{style}{}{style:#} {}", record.level(), record.args())
+        })
+        .init();
+
     cli.command.run()?;
     Ok(())
 }
