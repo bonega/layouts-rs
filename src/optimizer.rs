@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use rand::{Rng, prelude::*, rng, rngs::StdRng};
+use rand::{Rng, prelude::*, rngs::StdRng};
 use rayon::prelude::*;
 use serde::Deserialize;
 
@@ -225,7 +225,7 @@ impl OptimizableLayout {
 
 pub struct RunOptions {
     pub iterations: usize,
-    pub seed: Option<u64>,
+    pub seed: u64,
     pub pinned: HashSet<char>,
     pub max_swapped: Option<usize>,
     pub shuffle: bool,
@@ -255,11 +255,7 @@ impl HillClimbOptimizer {
 
 impl Optimizer for HillClimbOptimizer {
     fn optimize(&self, layout: &Layout, opts: RunOptions) -> Layout {
-        let mut rng: StdRng = if let Some(seed) = opts.seed {
-            StdRng::seed_from_u64(seed)
-        } else {
-            StdRng::from_rng(&mut rng())
-        };
+        let mut rng: StdRng = StdRng::seed_from_u64(opts.seed);
 
         let mut best_layout = OptimizableLayout::new(
             layout.clone(),
@@ -334,11 +330,7 @@ impl SimulatedAnnealingOptimizer {
 
 impl Optimizer for SimulatedAnnealingOptimizer {
     fn optimize(&self, layout: &Layout, opts: RunOptions) -> Layout {
-        let mut rng: StdRng = if let Some(seed) = opts.seed {
-            StdRng::seed_from_u64(seed)
-        } else {
-            StdRng::from_rng(&mut rng())
-        };
+        let mut rng: StdRng = StdRng::seed_from_u64(opts.seed);
 
         let mut best_layout = OptimizableLayout::new(
             layout.clone(),
@@ -447,7 +439,7 @@ mod optimizer_tests {
             &layout,
             RunOptions {
                 iterations: 10,
-                seed: Some(42),
+                seed: 42,
                 pinned: HashSet::new(),
                 max_swapped: None,
                 shuffle: false,
@@ -493,7 +485,7 @@ mod optimizer_tests {
             &layout,
             RunOptions {
                 iterations: 1000,
-                seed: Some(42),
+                seed: 42,
                 pinned: HashSet::new(),
                 max_swapped: None,
                 shuffle: true,

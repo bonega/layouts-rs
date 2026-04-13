@@ -11,6 +11,7 @@ use layouts_rs::{
     optimizer::{self, Algorithm, HillClimbOptimizer, Optimizer, SimulatedAnnealingOptimizer},
     stats::SimpleStats,
 };
+use rand::{Rng, rng};
 
 #[derive(Parser)]
 struct Cli {
@@ -65,9 +66,15 @@ struct RunOptions {
 
 impl From<RunOptions> for optimizer::RunOptions {
     fn from(options: RunOptions) -> Self {
+        let seed = if let Some(seed) = options.seed {
+            seed
+        } else {
+            rng().next_u64()
+        };
+
         Self {
             iterations: options.iterations,
-            seed: options.seed,
+            seed,
             pinned: options.pinned.chars().collect(),
             max_swapped: options.max_swapped,
             shuffle: options.shuffle,
