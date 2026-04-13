@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fs, path::Path};
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 
 use layouts_rs::{
     analyzer::Analyzer,
@@ -8,7 +8,7 @@ use layouts_rs::{
     corpus::Corpus,
     layout::Layout,
     metrics::SimpleMetrics,
-    optimizer::{self, Algorithm, HillClimbOptimizer, Optimizer, SimulatedAnnealingOptimizer},
+    optimizer::{self, HillClimbOptimizer, Optimizer, SimulatedAnnealingOptimizer},
     stats::SimpleStats,
 };
 use rand::{Rng, rng};
@@ -62,6 +62,20 @@ struct RunOptions {
         help = "Whether to shuffle the layout before optimization"
     )]
     shuffle: bool,
+    #[arg(
+        long,
+        value_enum,
+        default_value_t = Algorithm::HillClimb,
+        help = "Optimization algorithm to use"
+    )]
+    algorithm: Algorithm,
+}
+
+#[derive(ValueEnum, Clone)]
+#[clap(rename_all = "snake_case")]
+pub enum Algorithm {
+    HillClimb,
+    SimulatedAnnealing,
 }
 
 impl From<RunOptions> for optimizer::RunOptions {
@@ -150,17 +164,16 @@ impl Command {
 
                 let corpus = args.common.corpus();
                 let analyzer = Analyzer::new(corpus);
-                let optimizer = Self::select_optimizer(analyzer.clone(), &config.optimization);
-                let score = optimizer.score(&layout);
 
-                let mut report_metrics = SimpleMetrics::default();
-                analyzer.analyze(&layout, &mut report_metrics);
-                let report = SimpleStats::from(report_metrics);
+                let mut metrics = SimpleMetrics::default();
+                analyzer.analyze(&layout, &mut metrics);
+                let stats = SimpleStats::from(metrics);
+                let score = stats.score(&config.optimization.targets);
 
                 println!("Initial Layout:");
                 println!("{layout}");
-                println!("Optimizer score: {score:.4}");
-                println!("{report}");
+                println!("Optimization score: {score:.4}");
+                println!("{stats}");
             }
             Command::Optimize(args) => {
                 let config = Config::load(Path::new(&args.common.config))?;
@@ -170,18 +183,22 @@ impl Command {
 
                 let corpus = args.common.corpus();
                 let analyzer = Analyzer::new(corpus);
-                let optimizer = Self::select_optimizer(analyzer.clone(), &config.optimization);
+                let optimizer = Self::select_optimizer(
+                    analyzer.clone(),
+                    &args.run_options,
+                    &config.optimization,
+                );
                 let optimized_layout = optimizer.optimize(&layout, args.run_options.clone().into());
 
-                let mut report_metrics = SimpleMetrics::default();
-                analyzer.analyze(&optimized_layout, &mut report_metrics);
-                let report = SimpleStats::from(report_metrics);
-                let score = optimizer.score(&optimized_layout);
+                let mut metrics = SimpleMetrics::default();
+                analyzer.analyze(&optimized_layout, &mut metrics);
+                let stats = SimpleStats::from(metrics);
+                let score = stats.score(&config.optimization.targets);
 
                 println!("Optimized Layout:");
                 println!("{optimized_layout}");
-                println!("Optimizer score: {score:.4}");
-                println!("{report}");
+                println!("Optimization score: {score:.4}");
+                println!("{stats}");
             }
         }
         Ok(())
@@ -189,9 +206,10 @@ impl Command {
 
     fn select_optimizer(
         analyzer: Analyzer,
+        run_options: &RunOptions,
         optimization: &OptimizationConfig,
     ) -> Box<dyn Optimizer> {
-        match optimization.algorithm {
+        match run_options.algorithm {
             Algorithm::HillClimb => Box::new(HillClimbOptimizer::new(
                 analyzer,
                 optimization.targets.clone(),

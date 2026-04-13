@@ -6,7 +6,7 @@ use serde::{Deserialize, de::Error};
 use crate::{
     layout,
     matrix::Matrix,
-    optimizer::{Algorithm, SimulatedAnnealingConfig, Targets},
+    optimizer::{SimulatedAnnealingConfig, Targets},
 };
 
 #[derive(Deserialize)]
@@ -17,7 +17,6 @@ pub struct Config {
 
 #[derive(Deserialize, Clone)]
 pub struct OptimizationConfig {
-    pub algorithm: Algorithm,
     pub targets: Targets,
     pub simulated_annealing: SimulatedAnnealingConfig,
 }

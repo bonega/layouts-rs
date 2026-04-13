@@ -18,13 +18,6 @@ use crate::{
 const MAX_PERTURB_ATTEMPTS: usize = 30;
 
 #[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "snake_case")]
-pub enum Algorithm {
-    HillClimb,
-    SimulatedAnnealing,
-}
-
-#[derive(Debug, Deserialize, Clone)]
 pub struct SimulatedAnnealingConfig {
     pub init_temp: f64,
     pub cooling: f64,
@@ -79,7 +72,7 @@ impl Target {
 }
 
 impl SimpleStats {
-    fn score(&self, targets: &Targets) -> f64 {
+    pub fn score(&self, targets: &Targets) -> f64 {
         targets.effort.score(self.effort)
             + targets.left_hand_usage.score(self.left_hand_usage)
             + targets.pinky_off_home.score(self.pinky_off_home)
