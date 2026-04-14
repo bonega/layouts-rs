@@ -30,18 +30,27 @@ pub struct SimulatedAnnealingConfig {
 #[derive(Deserialize, Default, Clone)]
 pub struct Targets {
     pub effort: Target,
-    pub left_hand_usage: Target,
     pub pinky_off_home: Target,
+    pub left_hand_usage: Target,
     pub bigram_skips_1: Target,
     pub bigram_skips_n: Target,
-    pub bigram_lateral_stretches: Target,
     pub bigram_scissors: Target,
-    pub bigram_wide_scissors: Target,
-    pub trigram_skips_same_hand: Target,
-    pub trigram_skips_alternation: Target,
-    pub trigram_roll_ratio: Target,
-    pub trigram_redirects_weak: Target,
+    pub bigram_scissors_wide: Target,
+    pub bigram_lateral_stretches: Target,
+    pub trigram_skips_1_same_hand: Target,
+    pub trigram_skips_1_alternation: Target,
+    pub trigram_skips_n_same_hand: Target,
+    pub trigram_skips_n_alternation: Target,
+    pub trigram_scissors_same_hand: Target,
+    pub trigram_scissors_alternation: Target,
+    pub trigram_scissors_wide_same_hand: Target,
+    pub trigram_scissors_wide_alternation: Target,
+    pub trigram_lateral_stretches_same_hand: Target,
+    pub trigram_lateral_stretches_alternation: Target,
     pub trigram_redirects_strong: Target,
+    pub trigram_redirects_weak: Target,
+    pub trigram_roll_ratio: Target,
+    pub trigram_roll_ratio_bigrams: Target,
     pub trigram_alternations: Target,
 }
 
@@ -76,30 +85,57 @@ impl Target {
 impl SimpleStats {
     pub fn score(&self, targets: &Targets) -> f64 {
         targets.effort.score(self.effort)
-            + targets.left_hand_usage.score(self.left_hand_usage)
             + targets.pinky_off_home.score(self.pinky_off_home)
+            + targets.left_hand_usage.score(self.left_hand_usage)
             + targets.bigram_skips_1.score(self.bigram_skips_1)
             + targets.bigram_skips_n.score(self.bigram_skips_n)
+            + targets.bigram_scissors.score(self.bigram_scissors)
+            + targets
+                .bigram_scissors_wide
+                .score(self.bigram_scissors_wide)
             + targets
                 .bigram_lateral_stretches
                 .score(self.bigram_lateral_stretches)
-            + targets.bigram_scissors.score(self.bigram_scissors)
             + targets
-                .bigram_wide_scissors
-                .score(self.bigram_wide_scissors)
+                .trigram_skips_1_same_hand
+                .score(self.trigram_skips_1_same_hand)
             + targets
-                .trigram_skips_same_hand
-                .score(self.trigram_skips_same_hand)
+                .trigram_skips_1_alternation
+                .score(self.trigram_skips_1_alternation)
             + targets
-                .trigram_skips_alternation
-                .score(self.trigram_skips_alternation)
-            + targets.trigram_roll_ratio.score(self.trigram_roll_ratio())
+                .trigram_skips_n_same_hand
+                .score(self.trigram_skips_n_same_hand)
             + targets
-                .trigram_redirects_weak
-                .score(self.trigram_redirects_weak)
+                .trigram_skips_n_alternation
+                .score(self.trigram_skips_n_alternation)
+            + targets
+                .trigram_scissors_same_hand
+                .score(self.trigram_scissors_same_hand)
+            + targets
+                .trigram_scissors_alternation
+                .score(self.trigram_scissors_alternation)
+            + targets
+                .trigram_scissors_wide_same_hand
+                .score(self.trigram_scissors_wide_same_hand)
+            + targets
+                .trigram_scissors_wide_alternation
+                .score(self.trigram_scissors_wide_alternation)
+            + targets
+                .trigram_lateral_stretches_same_hand
+                .score(self.trigram_lateral_stretches_same_hand)
+            + targets
+                .trigram_lateral_stretches_alternation
+                .score(self.trigram_lateral_stretches_alternation)
             + targets
                 .trigram_redirects_strong
                 .score(self.trigram_redirects_strong)
+            + targets
+                .trigram_redirects_weak
+                .score(self.trigram_redirects_weak)
+            + targets.trigram_roll_ratio.score(self.trigram_roll_ratio())
+            + targets
+                .trigram_roll_ratio_bigrams
+                .score(self.trigram_roll_ratio_bigrams())
             + targets
                 .trigram_alternations
                 .score(self.trigram_alternations)
@@ -735,58 +771,65 @@ mod tests {
         let stats = SimpleStats {
             total_chars: 10.0,
             effort: 10.0,
-            left_hand_usage: 10.0,
-            right_hand_usage: 90.0,
             pinky_off_home: 10.0,
-            bigram_skips_1: 10.0,
-            bigram_skips_n: 10.0,
-            bigram_lateral_stretches: 10.0,
-            bigram_scissors: 10.0,
-            bigram_wide_scissors: 10.0,
-            bigram_others: 0.0,
-            trigram_skips_same_hand: 10.0,
-            trigram_skips_same_hand_1: 0.0,
-            trigram_skips_same_hand_n: 0.0,
-            trigram_skips_alternation: 10.0,
-            trigram_skips_alternation_1: 0.0,
-            trigram_skips_alternation_n: 0.0,
-            trigram_lateral_stretches_same_hand: 0.0,
-            trigram_lateral_stretches_alternation: 0.0,
-            trigram_scissors_same_hand_1: 0.0,
-            trigram_scissors_same_hand_n: 0.0,
-            trigram_scissors_alternation_1: 0.0,
-            trigram_scissors_alternation_n: 0.0,
-            trigram_roll_in: 10.0,
-            trigram_roll_out: 90.0,
-            trigram_roll_in_bigrams: 20.0,
-            trigram_roll_out_bigrams: 40.0,
-            trigram_redirects_weak: 10.0,
-            trigram_redirects_strong: 10.0,
-            trigram_alternations: 10.0,
-            trigram_others: 0.0,
             finger_usage: [].into(),
             row_usage: [].into(),
             column_usage: [].into(),
+            left_hand_usage: 10.0,
+            right_hand_usage: 90.0,
+            bigram_skips_1: 10.0,
+            bigram_skips_n: 10.0,
+            bigram_scissors: 10.0,
+            bigram_scissors_wide: 10.0,
+            bigram_lateral_stretches: 10.0,
+            bigram_others: 0.0,
+            trigram_skips_1_same_hand: 10.0,
+            trigram_skips_1_alternation: 10.0,
+            trigram_skips_n_same_hand: 10.0,
+            trigram_skips_n_alternation: 10.0,
+            trigram_scissors_same_hand: 10.0,
+            trigram_scissors_alternation: 10.0,
+            trigram_scissors_wide_same_hand: 10.0,
+            trigram_scissors_wide_alternation: 10.0,
+            trigram_lateral_stretches_same_hand: 10.0,
+            trigram_lateral_stretches_alternation: 10.0,
+            trigram_redirects_strong: 10.0,
+            trigram_redirects_weak: 10.0,
+            trigram_roll_in: 10.0,
+            trigram_roll_out: 90.0,
+            trigram_roll_in_bigrams: 10.0,
+            trigram_roll_out_bigrams: 90.0,
+            trigram_alternations: 10.0,
+            trigram_others: 0.0,
         };
 
         let targets = Targets {
             effort: optimizer_target!(20.0, 1.0),
-            left_hand_usage: optimizer_target!(20.0, 2.0),
-            pinky_off_home: optimizer_target!(20.0, 3.0),
+            pinky_off_home: optimizer_target!(20.0, 2.0),
+            left_hand_usage: optimizer_target!(20.0, 3.0),
             bigram_skips_1: optimizer_target!(20.0, 4.0),
             bigram_skips_n: optimizer_target!(20.0, 5.0),
-            bigram_lateral_stretches: optimizer_target!(20.0, 6.0),
-            bigram_scissors: optimizer_target!(20.0, 7.0),
-            bigram_wide_scissors: optimizer_target!(20.0, 8.0),
-            trigram_skips_same_hand: optimizer_target!(20.0, 9.0),
-            trigram_skips_alternation: optimizer_target!(20.0, 10.0),
-            trigram_roll_ratio: optimizer_target!(20.0, 11.0),
-            trigram_redirects_weak: optimizer_target!(20.0, 12.0),
-            trigram_redirects_strong: optimizer_target!(20.0, 13.0),
-            trigram_alternations: optimizer_target!(20.0, 14.0),
+            bigram_scissors: optimizer_target!(20.0, 6.0),
+            bigram_scissors_wide: optimizer_target!(20.0, 7.0),
+            bigram_lateral_stretches: optimizer_target!(20.0, 8.0),
+            trigram_skips_1_same_hand: optimizer_target!(20.0, 9.0),
+            trigram_skips_1_alternation: optimizer_target!(20.0, 10.0),
+            trigram_skips_n_same_hand: optimizer_target!(20.0, 11.0),
+            trigram_skips_n_alternation: optimizer_target!(20.0, 12.0),
+            trigram_scissors_same_hand: optimizer_target!(20.0, 13.0),
+            trigram_scissors_alternation: optimizer_target!(20.0, 14.0),
+            trigram_scissors_wide_same_hand: optimizer_target!(20.0, 15.0),
+            trigram_scissors_wide_alternation: optimizer_target!(20.0, 16.0),
+            trigram_lateral_stretches_same_hand: optimizer_target!(20.0, 17.0),
+            trigram_lateral_stretches_alternation: optimizer_target!(20.0, 18.0),
+            trigram_redirects_strong: optimizer_target!(20.0, 19.0),
+            trigram_redirects_weak: optimizer_target!(20.0, 20.0),
+            trigram_roll_ratio: optimizer_target!(20.0, 21.0),
+            trigram_roll_ratio_bigrams: optimizer_target!(20.0, 22.0),
+            trigram_alternations: optimizer_target!(20.0, 23.0),
         };
 
-        let n = 14.0;
+        let n = 23.0;
         let expected = 10.0 * n * (n + 1.0) / 2.0;
         check!(stats.score(&targets) == expected);
     }

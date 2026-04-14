@@ -28,28 +28,27 @@ pub struct SimpleMetrics {
     pub pinky_off_home: f64,
     pub bigram_skips_1: f64,
     pub bigram_skips_n: f64,
-    pub bigram_lateral_stretches: f64,
     pub bigram_scissors: f64,
-    pub bigram_wide_scissors: f64,
+    pub bigram_scissors_wide: f64,
+    pub bigram_lateral_stretches: f64,
     pub bigram_others: f64,
     pub trigram_skips_same_hand: f64,
-    pub trigram_skips_same_hand_1: f64,
-    pub trigram_skips_same_hand_n: f64,
-    pub trigram_skips_alternation: f64,
-    pub trigram_skips_alternation_1: f64,
-    pub trigram_skips_alternation_n: f64,
+    pub trigram_skips_1_same_hand: f64,
+    pub trigram_skips_n_same_hand: f64,
+    pub trigram_skips_1_alternation: f64,
+    pub trigram_skips_n_alternation: f64,
+    pub trigram_scissors_same_hand: f64,
+    pub trigram_scissors_alternation: f64,
+    pub trigram_scissors_wide_same_hand: f64,
+    pub trigram_scissors_wide_alternation: f64,
     pub trigram_lateral_stretches_same_hand: f64,
     pub trigram_lateral_stretches_alternation: f64,
-    pub trigram_scissors_same_hand_1: f64,
-    pub trigram_scissors_same_hand_n: f64,
-    pub trigram_scissors_alternation_1: f64,
-    pub trigram_scissors_alternation_n: f64,
+    pub trigram_redirects_strong: f64,
+    pub trigram_redirects_weak: f64,
     pub trigram_roll_in: f64,
     pub trigram_roll_out: f64,
     pub trigram_roll_in_bigrams: f64,
     pub trigram_roll_out_bigrams: f64,
-    pub trigram_redirects_weak: f64,
-    pub trigram_redirects_strong: f64,
     pub trigram_alternations: f64,
     pub trigram_others: f64,
 }
@@ -86,7 +85,7 @@ impl MetricsCollector for SimpleMetrics {
                         }
                         BigramKind::Scissor { units, .. } => {
                             if units >= 2 {
-                                self.bigram_wide_scissors += count;
+                                self.bigram_scissors_wide += count;
                             } else {
                                 self.bigram_scissors += count;
                             }
@@ -104,16 +103,15 @@ impl MetricsCollector for SimpleMetrics {
                             if same_hand {
                                 self.trigram_skips_same_hand += count;
                                 if units == 1 {
-                                    self.trigram_skips_same_hand_1 += count;
+                                    self.trigram_skips_1_same_hand += count;
                                 } else {
-                                    self.trigram_skips_same_hand_n += count;
+                                    self.trigram_skips_n_same_hand += count;
                                 }
                             } else {
-                                self.trigram_skips_alternation += count;
                                 if units == 1 {
-                                    self.trigram_skips_alternation_1 += count;
+                                    self.trigram_skips_1_alternation += count;
                                 } else {
-                                    self.trigram_skips_alternation_n += count;
+                                    self.trigram_skips_n_alternation += count;
                                 }
                             }
                         }
@@ -145,14 +143,14 @@ impl MetricsCollector for SimpleMetrics {
                         } => {
                             if same_hand {
                                 if units >= 2 {
-                                    self.trigram_scissors_same_hand_n += count;
+                                    self.trigram_scissors_wide_same_hand += count;
                                 } else {
-                                    self.trigram_scissors_same_hand_1 += count;
+                                    self.trigram_scissors_same_hand += count;
                                 }
                             } else if units >= 2 {
-                                self.trigram_scissors_alternation_n += count;
+                                self.trigram_scissors_wide_alternation += count;
                             } else {
-                                self.trigram_scissors_alternation_1 += count;
+                                self.trigram_scissors_alternation += count;
                             }
                         }
                         TrigramKind::Other => {
@@ -274,7 +272,7 @@ mod simple_metrics_tests {
             metrics.collect_metric(Metric::Bigram(ngram!(qwerty, 'c', 'w'), 10.0));
             metrics.collect_metric(Metric::Bigram(ngram!(qwerty, 'c', 's'), 20.0));
 
-            check!(metrics.bigram_wide_scissors == 10.0);
+            check!(metrics.bigram_scissors_wide == 10.0);
             check!(metrics.bigram_scissors == 20.0);
         }
 
@@ -300,11 +298,10 @@ mod simple_metrics_tests {
             metrics.collect_metric(Metric::Trigram(ngram!(qwerty, 'q', 'h', 'a'), 20.0));
 
             check!(metrics.trigram_skips_same_hand == 10.0);
-            check!(metrics.trigram_skips_same_hand_1 == 10.0);
-            check!(metrics.trigram_skips_same_hand_n == 0.0);
-            check!(metrics.trigram_skips_alternation == 20.0);
-            check!(metrics.trigram_skips_alternation_1 == 20.0);
-            check!(metrics.trigram_skips_alternation_n == 0.0);
+            check!(metrics.trigram_skips_1_same_hand == 10.0);
+            check!(metrics.trigram_skips_n_same_hand == 0.0);
+            check!(metrics.trigram_skips_1_alternation == 20.0);
+            check!(metrics.trigram_skips_n_alternation == 0.0);
         }
 
         #[rstest]
@@ -325,10 +322,10 @@ mod simple_metrics_tests {
             metrics.collect_metric(Metric::Trigram(ngram!(qwerty, 'c', 'a', 'w'), 10.0));
             metrics.collect_metric(Metric::Trigram(ngram!(qwerty, 'c', 'j', 'w'), 20.0));
 
-            check!(metrics.trigram_scissors_same_hand_1 == 0.0);
-            check!(metrics.trigram_scissors_same_hand_n == 10.0);
-            check!(metrics.trigram_scissors_alternation_1 == 0.0);
-            check!(metrics.trigram_scissors_alternation_n == 20.0);
+            check!(metrics.trigram_scissors_same_hand == 0.0);
+            check!(metrics.trigram_scissors_wide_same_hand == 10.0);
+            check!(metrics.trigram_scissors_alternation == 0.0);
+            check!(metrics.trigram_scissors_wide_alternation == 20.0);
         }
 
         #[rstest]

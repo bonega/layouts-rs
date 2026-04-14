@@ -8,39 +8,37 @@ use crate::{
 
 #[derive(Debug, Default, PartialEq)]
 pub struct SimpleStats {
+    pub total_chars: f64,
+    pub effort: f64,
+    pub pinky_off_home: f64,
     pub finger_usage: HashMap<Finger, f64>,
     pub row_usage: HashMap<usize, f64>,
     pub column_usage: HashMap<usize, f64>,
-    pub total_chars: f64,
-    pub bigram_lateral_stretches: f64,
-    pub bigram_scissors: f64,
-    pub bigram_skips_1: f64,
-    pub bigram_skips_n: f64,
-    pub bigram_wide_scissors: f64,
-    pub bigram_others: f64,
-    pub effort: f64,
     pub left_hand_usage: f64,
     pub right_hand_usage: f64,
-    pub pinky_off_home: f64,
-    pub trigram_alternations: f64,
-    pub trigram_lateral_stretches_alternation: f64,
+    pub bigram_skips_1: f64,
+    pub bigram_skips_n: f64,
+    pub bigram_scissors: f64,
+    pub bigram_scissors_wide: f64,
+    pub bigram_lateral_stretches: f64,
+    pub bigram_others: f64,
+    pub trigram_skips_1_same_hand: f64,
+    pub trigram_skips_1_alternation: f64,
+    pub trigram_skips_n_same_hand: f64,
+    pub trigram_skips_n_alternation: f64,
+    pub trigram_scissors_same_hand: f64,
+    pub trigram_scissors_alternation: f64,
+    pub trigram_scissors_wide_same_hand: f64,
+    pub trigram_scissors_wide_alternation: f64,
     pub trigram_lateral_stretches_same_hand: f64,
+    pub trigram_lateral_stretches_alternation: f64,
     pub trigram_redirects_strong: f64,
     pub trigram_redirects_weak: f64,
-    pub trigram_scissors_alternation_1: f64,
-    pub trigram_scissors_alternation_n: f64,
-    pub trigram_scissors_same_hand_1: f64,
-    pub trigram_scissors_same_hand_n: f64,
-    pub trigram_skips_alternation: f64,
-    pub trigram_skips_alternation_1: f64,
-    pub trigram_skips_alternation_n: f64,
     pub trigram_roll_in: f64,
     pub trigram_roll_out: f64,
     pub trigram_roll_in_bigrams: f64,
     pub trigram_roll_out_bigrams: f64,
-    pub trigram_skips_same_hand: f64,
-    pub trigram_skips_same_hand_1: f64,
-    pub trigram_skips_same_hand_n: f64,
+    pub trigram_alternations: f64,
     pub trigram_others: f64,
 }
 
@@ -50,6 +48,16 @@ impl SimpleStats {
 
         if total_roll > 0.0 {
             100.0 * self.trigram_roll_in / total_roll
+        } else {
+            50.0
+        }
+    }
+
+    pub fn trigram_roll_ratio_bigrams(&self) -> f64 {
+        let total_roll = self.trigram_roll_in_bigrams + self.trigram_roll_out_bigrams;
+
+        if total_roll > 0.0 {
+            100.0 * self.trigram_roll_in_bigrams / total_roll
         } else {
             50.0
         }
@@ -82,36 +90,7 @@ impl From<SimpleMetrics> for SimpleStats {
         Self {
             total_chars: metrics.total_chars,
             effort: pct * metrics.effort,
-            left_hand_usage: 100.0 * left_hand_usage / total_hand_usage,
-            right_hand_usage: 100.0 * right_hand_usage / total_hand_usage,
             pinky_off_home: pct * metrics.pinky_off_home,
-            bigram_skips_1: pct * metrics.bigram_skips_1,
-            bigram_skips_n: pct * metrics.bigram_skips_n,
-            bigram_lateral_stretches: pct * metrics.bigram_lateral_stretches,
-            bigram_scissors: pct * metrics.bigram_scissors,
-            bigram_wide_scissors: pct * metrics.bigram_wide_scissors,
-            trigram_skips_same_hand: pct * metrics.trigram_skips_same_hand,
-            trigram_skips_same_hand_1: pct * metrics.trigram_skips_same_hand_1,
-            trigram_skips_same_hand_n: pct * metrics.trigram_skips_same_hand_n,
-            trigram_skips_alternation: pct * metrics.trigram_skips_alternation,
-            trigram_skips_alternation_1: pct * metrics.trigram_skips_alternation_1,
-            trigram_skips_alternation_n: pct * metrics.trigram_skips_alternation_n,
-            trigram_lateral_stretches_same_hand: pct * metrics.trigram_lateral_stretches_same_hand,
-            trigram_lateral_stretches_alternation: pct
-                * metrics.trigram_lateral_stretches_alternation,
-            trigram_scissors_same_hand_1: pct * metrics.trigram_scissors_same_hand_1,
-            trigram_scissors_same_hand_n: pct * metrics.trigram_scissors_same_hand_n,
-            trigram_scissors_alternation_1: pct * metrics.trigram_scissors_alternation_1,
-            trigram_scissors_alternation_n: pct * metrics.trigram_scissors_alternation_n,
-            trigram_redirects_weak: pct * metrics.trigram_redirects_weak,
-            trigram_redirects_strong: pct * metrics.trigram_redirects_strong,
-            trigram_alternations: pct * metrics.trigram_alternations,
-            bigram_others: pct * metrics.bigram_others,
-            trigram_others: pct * metrics.trigram_others,
-            trigram_roll_in: pct * metrics.trigram_roll_in,
-            trigram_roll_out: pct * metrics.trigram_roll_out,
-            trigram_roll_in_bigrams: pct * metrics.trigram_roll_in_bigrams,
-            trigram_roll_out_bigrams: pct * metrics.trigram_roll_out_bigrams,
             finger_usage: metrics
                 .finger_usage
                 .iter()
@@ -127,6 +106,33 @@ impl From<SimpleMetrics> for SimpleStats {
                 .iter()
                 .map(|(column, usage)| (*column, 100.0 * usage / total_column_usage))
                 .collect(),
+            left_hand_usage: 100.0 * left_hand_usage / total_hand_usage,
+            right_hand_usage: 100.0 * right_hand_usage / total_hand_usage,
+            bigram_skips_1: pct * metrics.bigram_skips_1,
+            bigram_skips_n: pct * metrics.bigram_skips_n,
+            bigram_scissors: pct * metrics.bigram_scissors,
+            bigram_scissors_wide: pct * metrics.bigram_scissors_wide,
+            bigram_lateral_stretches: pct * metrics.bigram_lateral_stretches,
+            bigram_others: pct * metrics.bigram_others,
+            trigram_skips_1_same_hand: pct * metrics.trigram_skips_1_same_hand,
+            trigram_skips_1_alternation: pct * metrics.trigram_skips_1_alternation,
+            trigram_skips_n_same_hand: pct * metrics.trigram_skips_n_same_hand,
+            trigram_skips_n_alternation: pct * metrics.trigram_skips_n_alternation,
+            trigram_scissors_same_hand: pct * metrics.trigram_scissors_same_hand,
+            trigram_scissors_alternation: pct * metrics.trigram_scissors_alternation,
+            trigram_scissors_wide_same_hand: pct * metrics.trigram_scissors_wide_same_hand,
+            trigram_scissors_wide_alternation: pct * metrics.trigram_scissors_wide_alternation,
+            trigram_lateral_stretches_same_hand: pct * metrics.trigram_lateral_stretches_same_hand,
+            trigram_lateral_stretches_alternation: pct
+                * metrics.trigram_lateral_stretches_alternation,
+            trigram_redirects_strong: pct * metrics.trigram_redirects_strong,
+            trigram_redirects_weak: pct * metrics.trigram_redirects_weak,
+            trigram_roll_in: pct * metrics.trigram_roll_in,
+            trigram_roll_out: pct * metrics.trigram_roll_out,
+            trigram_roll_in_bigrams: pct * metrics.trigram_roll_in_bigrams,
+            trigram_roll_out_bigrams: pct * metrics.trigram_roll_out_bigrams,
+            trigram_alternations: pct * metrics.trigram_alternations,
+            trigram_others: pct * metrics.trigram_others,
         }
     }
 }
@@ -162,34 +168,55 @@ impl fmt::Display for SimpleStats {
         writeln!(f, "Bigram metrics:")?;
         writeln!(f, "  Skips 1: {:.2}%", self.bigram_skips_1)?;
         writeln!(f, "  Skips n: {:.2}%", self.bigram_skips_n)?;
+        writeln!(f, "  Scissors: {:.2}%", self.bigram_scissors)?;
+        writeln!(f, "  Scissors wide: {:.2}%", self.bigram_scissors_wide)?;
         writeln!(
             f,
             "  Lateral stretches: {:.2}%",
             self.bigram_lateral_stretches
         )?;
-        writeln!(f, "  Scissors: {:.2}%", self.bigram_scissors)?;
-        writeln!(f, "  Scissors wide: {:.2}%", self.bigram_wide_scissors)?;
         writeln!(f, "  Others: {:.2}%", self.bigram_others)?;
         writeln!(f, "Trigram metrics:")?;
+
         writeln!(
             f,
-            "  Same-hand skips 1: {:.2}%",
-            self.trigram_skips_same_hand_1
+            "  Skips 1 (same hand): {:.2}%",
+            self.trigram_skips_1_same_hand
         )?;
         writeln!(
             f,
-            "  Same-hand skips n: {:.2}%",
-            self.trigram_skips_same_hand_n
+            "  Skips 1 (alternation): {:.2}%",
+            self.trigram_skips_1_alternation
         )?;
         writeln!(
             f,
-            "  Alternation skips 1: {:.2}%",
-            self.trigram_skips_alternation_1
+            "  Skips n (same hand): {:.2}%",
+            self.trigram_skips_n_same_hand
         )?;
         writeln!(
             f,
-            "  Alternation skips n: {:.2}%",
-            self.trigram_skips_alternation_n
+            "  Skips n (alternation): {:.2}%",
+            self.trigram_skips_n_alternation
+        )?;
+        writeln!(
+            f,
+            "  Scissors (same hand): {:.2}%",
+            self.trigram_scissors_same_hand
+        )?;
+        writeln!(
+            f,
+            "  Scissors (alternation): {:.2}%",
+            self.trigram_scissors_alternation
+        )?;
+        writeln!(
+            f,
+            "  Scissors wide (same hand): {:.2}%",
+            self.trigram_scissors_wide_same_hand
+        )?;
+        writeln!(
+            f,
+            "  Scissors wide (alternation): {:.2}%",
+            self.trigram_scissors_wide_alternation
         )?;
         writeln!(
             f,
@@ -203,37 +230,21 @@ impl fmt::Display for SimpleStats {
         )?;
         writeln!(
             f,
-            "  Scissors (same hand 1): {:.2}%",
-            self.trigram_scissors_same_hand_1
-        )?;
-        writeln!(
-            f,
-            "  Scissors (same hand n): {:.2}%",
-            self.trigram_scissors_same_hand_n
-        )?;
-        writeln!(
-            f,
-            "  Scissors (alternation 1): {:.2}%",
-            self.trigram_scissors_alternation_1
-        )?;
-        writeln!(
-            f,
-            "  Scissors (alternation n): {:.2}%",
-            self.trigram_scissors_alternation_n
-        )?;
-        writeln!(f, "  Roll-in: {:.2}%", self.trigram_roll_in)?;
-        writeln!(f, "  Roll-out: {:.2}%", self.trigram_roll_out)?;
-        writeln!(f, "  Roll-in bigrams: {:.2}%", self.trigram_roll_in_bigrams)?;
-        writeln!(
-            f,
-            "  Roll-out bigrams: {:.2}%",
-            self.trigram_roll_out_bigrams
-        )?;
-        writeln!(f, "  Redirects (weak): {:.2}%", self.trigram_redirects_weak)?;
-        writeln!(
-            f,
             "  Redirects (strong): {:.2}%",
             self.trigram_redirects_strong
+        )?;
+        writeln!(f, "  Redirects (weak): {:.2}%", self.trigram_redirects_weak)?;
+        writeln!(f, "  Roll-in: {:.2}%", self.trigram_roll_in)?;
+        writeln!(f, "  Roll-out: {:.2}%", self.trigram_roll_out)?;
+        writeln!(
+            f,
+            "  Roll-in (bigrams): {:.2}%",
+            self.trigram_roll_in_bigrams
+        )?;
+        writeln!(
+            f,
+            "  Roll-out (bigrams): {:.2}%",
+            self.trigram_roll_out_bigrams
         )?;
         writeln!(
             f,
@@ -241,6 +252,7 @@ impl fmt::Display for SimpleStats {
             self.trigram_alternations
         )?;
         writeln!(f, "  Others: {:.2}%", self.trigram_others)?;
+
         Ok(())
     }
 }
@@ -265,15 +277,14 @@ mod simple_stats_tests {
             bigram_skips_n: 50.0,
             bigram_lateral_stretches: 60.0,
             bigram_scissors: 70.0,
-            bigram_wide_scissors: 80.0,
+            bigram_scissors_wide: 80.0,
             bigram_others: 90.0,
 
             trigram_skips_same_hand: 10.0,
-            trigram_skips_same_hand_1: 20.0,
-            trigram_skips_same_hand_n: 30.0,
-            trigram_skips_alternation: 40.0,
-            trigram_skips_alternation_1: 50.0,
-            trigram_skips_alternation_n: 60.0,
+            trigram_skips_1_same_hand: 20.0,
+            trigram_skips_n_same_hand: 30.0,
+            trigram_skips_1_alternation: 50.0,
+            trigram_skips_n_alternation: 60.0,
             trigram_roll_in: 80.0,
             trigram_roll_out: 120.0,
             trigram_redirects_weak: 90.0,
@@ -281,10 +292,10 @@ mod simple_stats_tests {
             trigram_alternations: 110.0,
             trigram_lateral_stretches_same_hand: 120.0,
             trigram_lateral_stretches_alternation: 130.0,
-            trigram_scissors_same_hand_1: 140.0,
-            trigram_scissors_same_hand_n: 150.0,
-            trigram_scissors_alternation_1: 160.0,
-            trigram_scissors_alternation_n: 170.0,
+            trigram_scissors_same_hand: 140.0,
+            trigram_scissors_wide_same_hand: 150.0,
+            trigram_scissors_alternation: 160.0,
+            trigram_scissors_wide_alternation: 170.0,
             trigram_roll_in_bigrams: 180.0,
             trigram_roll_out_bigrams: 190.0,
             trigram_others: 200.0,
@@ -296,38 +307,36 @@ mod simple_stats_tests {
             stats
                 == SimpleStats {
                     total_chars: 200.0,
-                    column_usage: [(0, 80.0), (1, 20.0)].into(),
-                    row_usage: [(0, 25.0), (1, 75.0)].into(),
-                    finger_usage: [(1.into(), 20.0), (2.into(), 20.0), (8.into(), 60.0)].into(),
                     effort: 5.0,
+                    pinky_off_home: 15.0,
+                    finger_usage: [(1.into(), 20.0), (2.into(), 20.0), (8.into(), 60.0)].into(),
+                    row_usage: [(0, 25.0), (1, 75.0)].into(),
+                    column_usage: [(0, 80.0), (1, 20.0)].into(),
                     left_hand_usage: 40.0,
                     right_hand_usage: 60.0,
-                    pinky_off_home: 15.0,
                     bigram_skips_1: 20.0,
                     bigram_skips_n: 25.0,
-                    bigram_lateral_stretches: 30.0,
                     bigram_scissors: 35.0,
-                    bigram_wide_scissors: 40.0,
+                    bigram_scissors_wide: 40.0,
+                    bigram_lateral_stretches: 30.0,
                     bigram_others: 45.0,
-                    trigram_skips_same_hand: 5.0,
-                    trigram_skips_same_hand_1: 10.0,
-                    trigram_skips_same_hand_n: 15.0,
-                    trigram_skips_alternation: 20.0,
-                    trigram_skips_alternation_1: 25.0,
-                    trigram_skips_alternation_n: 30.0,
-                    trigram_roll_in: 40.0,
-                    trigram_roll_out: 60.0,
-                    trigram_redirects_weak: 45.0,
-                    trigram_redirects_strong: 50.0,
-                    trigram_alternations: 55.0,
+                    trigram_skips_1_same_hand: 10.0,
+                    trigram_skips_1_alternation: 25.0,
+                    trigram_skips_n_same_hand: 15.0,
+                    trigram_skips_n_alternation: 30.0,
+                    trigram_scissors_same_hand: 70.0,
+                    trigram_scissors_alternation: 80.0,
+                    trigram_scissors_wide_same_hand: 75.0,
+                    trigram_scissors_wide_alternation: 85.0,
                     trigram_lateral_stretches_same_hand: 60.0,
                     trigram_lateral_stretches_alternation: 65.0,
-                    trigram_scissors_same_hand_1: 70.0,
-                    trigram_scissors_same_hand_n: 75.0,
-                    trigram_scissors_alternation_1: 80.0,
-                    trigram_scissors_alternation_n: 85.0,
+                    trigram_redirects_strong: 50.0,
+                    trigram_redirects_weak: 45.0,
+                    trigram_roll_in: 40.0,
+                    trigram_roll_out: 60.0,
                     trigram_roll_in_bigrams: 90.0,
                     trigram_roll_out_bigrams: 95.0,
+                    trigram_alternations: 55.0,
                     trigram_others: 100.0,
                 }
         );
