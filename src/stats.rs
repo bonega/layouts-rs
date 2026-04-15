@@ -36,32 +36,12 @@ pub struct SimpleStats {
     pub trigram_redirects_weak: f64,
     pub trigram_roll_in: f64,
     pub trigram_roll_out: f64,
+    pub trigram_roll_ratio: f64,
     pub trigram_roll_in_bigrams: f64,
     pub trigram_roll_out_bigrams: f64,
+    pub trigram_roll_ratio_bigrams: f64,
     pub trigram_alternations: f64,
     pub trigram_others: f64,
-}
-
-impl SimpleStats {
-    pub fn trigram_roll_ratio(&self) -> f64 {
-        let total_roll = self.trigram_roll_in + self.trigram_roll_out;
-
-        if total_roll > 0.0 {
-            100.0 * self.trigram_roll_in / total_roll
-        } else {
-            50.0
-        }
-    }
-
-    pub fn trigram_roll_ratio_bigrams(&self) -> f64 {
-        let total_roll = self.trigram_roll_in_bigrams + self.trigram_roll_out_bigrams;
-
-        if total_roll > 0.0 {
-            100.0 * self.trigram_roll_in_bigrams / total_roll
-        } else {
-            50.0
-        }
-    }
 }
 
 impl From<SimpleMetrics> for SimpleStats {
@@ -86,6 +66,8 @@ impl From<SimpleMetrics> for SimpleStats {
 
         let total_row_usage: f64 = metrics.row_usage.values().sum();
         let total_column_usage: f64 = metrics.column_usage.values().sum();
+        let total_trigram_roll = metrics.trigram_roll_in + metrics.trigram_roll_out;
+        let total_bigram_roll = metrics.trigram_roll_in_bigrams + metrics.trigram_roll_out_bigrams;
 
         Self {
             total_chars: metrics.total_chars,
@@ -129,8 +111,18 @@ impl From<SimpleMetrics> for SimpleStats {
             trigram_redirects_weak: pct * metrics.trigram_redirects_weak,
             trigram_roll_in: pct * metrics.trigram_roll_in,
             trigram_roll_out: pct * metrics.trigram_roll_out,
+            trigram_roll_ratio: if total_trigram_roll > 0.0 {
+                100.0 * metrics.trigram_roll_in / total_trigram_roll
+            } else {
+                50.0
+            },
             trigram_roll_in_bigrams: pct * metrics.trigram_roll_in_bigrams,
             trigram_roll_out_bigrams: pct * metrics.trigram_roll_out_bigrams,
+            trigram_roll_ratio_bigrams: if total_bigram_roll > 0.0 {
+                100.0 * metrics.trigram_roll_in_bigrams / total_bigram_roll
+            } else {
+                50.0
+            },
             trigram_alternations: pct * metrics.trigram_alternations,
             trigram_others: pct * metrics.trigram_others,
         }
@@ -334,13 +326,13 @@ mod simple_stats_tests {
                     trigram_redirects_weak: 45.0,
                     trigram_roll_in: 40.0,
                     trigram_roll_out: 60.0,
+                    trigram_roll_ratio: 40.0,
                     trigram_roll_in_bigrams: 90.0,
                     trigram_roll_out_bigrams: 95.0,
+                    trigram_roll_ratio_bigrams: 180.0 / (180.0 + 190.0) * 100.0,
                     trigram_alternations: 55.0,
                     trigram_others: 100.0,
                 }
         );
-
-        check!(stats.trigram_roll_ratio() == 40.0);
     }
 }

@@ -132,10 +132,10 @@ impl SimpleStats {
             + targets
                 .trigram_redirects_weak
                 .score(self.trigram_redirects_weak)
-            + targets.trigram_roll_ratio.score(self.trigram_roll_ratio())
+            + targets.trigram_roll_ratio.score(self.trigram_roll_ratio)
             + targets
                 .trigram_roll_ratio_bigrams
-                .score(self.trigram_roll_ratio_bigrams())
+                .score(self.trigram_roll_ratio_bigrams)
             + targets
                 .trigram_alternations
                 .score(self.trigram_alternations)
@@ -797,8 +797,10 @@ mod tests {
             trigram_redirects_weak: 10.0,
             trigram_roll_in: 10.0,
             trigram_roll_out: 90.0,
+            trigram_roll_ratio: 10.0,
             trigram_roll_in_bigrams: 10.0,
             trigram_roll_out_bigrams: 90.0,
+            trigram_roll_ratio_bigrams: 10.0,
             trigram_alternations: 10.0,
             trigram_others: 0.0,
         };
