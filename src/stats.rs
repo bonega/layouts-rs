@@ -1,11 +1,3 @@
-use std::fmt;
-use std::hash::Hash;
-
-use indexmap::IndexMap;
-
-use crate::layout::*;
-use crate::metrics::*;
-
 include!(concat!(env!("OUT_DIR"), "/stats.rs"));
 
 #[cfg(test)]

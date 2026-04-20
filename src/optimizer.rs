@@ -1,16 +1,12 @@
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::fmt;
-use std::hash::Hash;
 use std::sync::Arc;
 
-use indexmap::IndexMap;
 use log::{debug, info};
 use rand::{Rng, prelude::*, rngs::StdRng};
 use rayon::prelude::*;
 use serde::Deserialize;
-
-include!(concat!(env!("OUT_DIR"), "/targets.rs"));
 
 use crate::{
     analyzer::Analyzer,
@@ -19,6 +15,7 @@ use crate::{
     metrics::Metrics,
     stats::Stats,
     swaps::{SwapMove, SwapMoveBuilder, SwapMoveStrategy},
+    targets::Targets,
 };
 
 const MAX_PERTURB_ATTEMPTS: usize = 30;
@@ -346,9 +343,10 @@ impl Optimizer for SimulatedAnnealingOptimizer {
 
 #[cfg(test)]
 mod optimizer_tests {
-    use super::*;
-    use crate::{corpus::Corpus, layout::Config};
     use assert2::check;
+
+    use super::*;
+    use crate::{corpus::Corpus, layout::Config, targets::*};
 
     #[test]
     fn it_optimizes_with_hill_climbing() {
@@ -372,7 +370,7 @@ mod optimizer_tests {
                     weight: 1.0,
                     scale: 1.0,
                 },
-                ..default_targets!()
+                ..default_targets()
             },
         );
 
@@ -412,7 +410,7 @@ mod optimizer_tests {
                     weight: 1.0,
                     scale: 1.0,
                 },
-                ..default_targets!()
+                ..default_targets()
             },
             SimulatedAnnealingConfig {
                 key_switches: 2,
@@ -439,10 +437,10 @@ mod optimizer_tests {
 
 #[cfg(test)]
 mod optimizable_layout_tests {
-    use crate::layout::Config;
+    use assert2::check;
 
     use super::*;
-    use assert2::check;
+    use crate::layout::Config;
 
     fn make_layout() -> Layout {
         Layout::new(
@@ -653,8 +651,7 @@ mod optimizable_layout_tests {
 mod tests {
     use assert2::check;
 
-    use super::*;
-    use crate::stats::*;
+    use crate::{stats::*, targets::*};
 
     #[test]
     fn it_gives_the_right_score() {

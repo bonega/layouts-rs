@@ -1,21 +1,4 @@
-use indexmap::IndexMap;
-
-use crate::layout::*;
-use crate::ngrams::*;
-
 include!(concat!(env!("OUT_DIR"), "/metrics.rs"));
-
-#[cfg_attr(test, mockall::automock)]
-pub trait MetricsCollector {
-    fn collect_metric(&mut self, metric: Metric);
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Metric {
-    Trigram(Trigram, f64),
-    Bigram(Bigram, f64),
-    Unigram(Unigram, f64),
-}
 
 #[cfg(test)]
 mod simple_metrics_tests {

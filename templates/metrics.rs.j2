@@ -32,6 +32,24 @@ if {{ metric.condition | print_rust_opt() | assigned_or("true") }} {
 {% endif %}{% endfor %}
 {% endmacro %}
 
+use indexmap::IndexMap;
+
+use crate::layout::*;
+use crate::ngrams::*;
+
+
+#[cfg_attr(test, mockall::automock)]
+pub trait MetricsCollector {
+    fn collect_metric(&mut self, metric: Metric);
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Metric {
+    Trigram(Trigram, f64),
+    Bigram(Bigram, f64),
+    Unigram(Unigram, f64),
+}
+
 #[derive(Default)]
 pub struct Metrics {
 {%- for metric in metrics %}

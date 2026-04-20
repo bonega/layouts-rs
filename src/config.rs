@@ -3,11 +3,7 @@ use std::path::Path;
 
 use serde::{Deserialize, de::Error};
 
-use crate::{
-    layout,
-    matrix::Matrix,
-    optimizer::{SimulatedAnnealingConfig, Targets},
-};
+use crate::{layout, matrix::Matrix, optimizer::SimulatedAnnealingConfig, targets::Targets};
 
 #[derive(Deserialize)]
 pub struct Config {

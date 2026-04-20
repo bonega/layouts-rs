@@ -49,7 +49,7 @@ macro_rules! finger_home_key {
 #[cfg(test)]
 macro_rules! optimizer_target {
     ($value:expr, $weight:expr) => {
-        crate::optimizer::SingleTarget {
+        crate::targets::SingleTarget {
             value: $value,
             weight: $weight,
             scale: 1.0,
@@ -87,3 +87,4 @@ pub mod ngrams;
 pub mod optimizer;
 pub mod stats;
 pub mod swaps;
+pub mod targets;
