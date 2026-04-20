@@ -1,0 +1,82 @@
+{% macro collect_metric(metric) %}
+if {{ metric.condition | print_rust_opt() | assigned_or("true") }} {
+  {% match metric.ty %}
+  {% when dsl::Ty::Scalar %}
+      {% match metric.value %}
+      {% when dsl::MetricValue::Set(expression) %}
+          self.{{ metric.name }} = {{ expression | print_rust() }};
+      {% when dsl::MetricValue::Add(expression) %}
+          self.{{ metric.name }} += {{ expression | print_rust() }};
+      {% endmatch %}
+  {% when dsl::Ty::Map(ty) %}
+      {% match metric.value %}
+      {% when dsl::MetricValue::Set(expression) %}
+          *self.{{ metric.name }}.entry({{ metric.group.as_ref().unwrap().key }}).or_default() = {{ expression | print_rust() }};
+      {% when dsl::MetricValue::Add(expression) %}
+          *self.{{ metric.name }}.entry({{ metric.group.as_ref().unwrap().key }}).or_default() += {{ expression | print_rust() }};
+
+      {% endmatch %}
+  {% endmatch %}
+}
+{% endmacro %}
+
+{% macro collect_bigram_metrics_kind(kind_name) %}
+{% for metric in metrics %}{% if metric.category.is_bigram_kind(kind_name) %}
+{% call collect_metric(metric) %}{% endcall %}
+{% endif %}{% endfor %}
+{% endmacro %}
+
+{% macro collect_trigram_metrics_kind(kind_name) %}
+{% for metric in metrics %}{% if metric.category.is_trigram_kind(kind_name) %}
+{% call collect_metric(metric) %}{% endcall %}
+{% endif %}{% endfor %}
+{% endmacro %}
+
+#[derive(Default)]
+pub struct Metrics {
+{%- for metric in metrics %}
+    pub {{ metric.name }}: {{ metric.ty | print_ty() }},
+{%- endfor %}
+}
+
+impl MetricsCollector for Metrics {
+    fn collect_metric(&mut self, metric: Metric) {
+        #[allow(unused_variables)]
+        match metric {
+            Metric::Unigram(unigram, count) => {
+                {% for metric in metrics %}{% if metric.category.is_unigram() %}
+                {% call collect_metric(metric) %}{% endcall %}
+                {% endif %}{% endfor %}
+            }
+            Metric::Bigram(bigram, count) => {
+                {% for metric in metrics %}{% if metric.category.is_bigram_no_kind() %}
+                {% call collect_metric(metric) %}{% endcall %}
+                {% endif %}{% endfor %}
+                for kind in bigram.kinds {
+                    match kind {
+                        BigramKind::SameFingerSkip { units } => { {{ collect_bigram_metrics_kind("SameFingerSkip") }} }
+                        BigramKind::LateralStretch { finger, units } => { {{ collect_bigram_metrics_kind("LateralStretch") }} }
+                        BigramKind::Scissor { units, upper_finger, lower_finger } => { {{ collect_bigram_metrics_kind("Scissor") }} }
+                        BigramKind::Other => { {{ collect_bigram_metrics_kind("Other") }} }
+                    }
+                }
+            }
+            Metric::Trigram(trigram, count) => {
+                {% for metric in metrics %}{% if metric.category.is_trigram_no_kind() %}
+                {% call collect_metric(metric) %}{% endcall %}
+                {% endif %}{% endfor %}
+                for kind in trigram.kinds {
+                    match kind {
+                        TrigramKind::SameFingerSkip { units, same_hand } => { {{ collect_trigram_metrics_kind("SameFingerSkip") }} }
+                        TrigramKind::Roll { triple, inward } => { {{ collect_trigram_metrics_kind("Roll") }} }
+                        TrigramKind::Redirect { weak } => { {{ collect_trigram_metrics_kind("Redirect") }} }
+                        TrigramKind::Alternation => { {{ collect_trigram_metrics_kind("Alternation") }} }
+                        TrigramKind::LateralStretch { same_hand, .. } => { {{ collect_trigram_metrics_kind("LateralStretch") }} }
+                        TrigramKind::Scissor { units, same_hand, .. } => { {{ collect_trigram_metrics_kind("Scissor") }} }
+                        TrigramKind::Other => { {{ collect_trigram_metrics_kind("Other") }} }
+                    }
+                }
+            }
+        }
+    }
+}

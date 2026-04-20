@@ -8,12 +8,14 @@ use rand::{Rng, prelude::*, rngs::StdRng};
 use rayon::prelude::*;
 use serde::Deserialize;
 
+include!(concat!(env!("OUT_DIR"), "/targets.rs"));
+
 use crate::{
     analyzer::Analyzer,
     layout::Layout,
     matrix::Pos,
-    metrics::SimpleMetrics,
-    stats::SimpleStats,
+    metrics::Metrics,
+    stats::Stats,
     swaps::{SwapMove, SwapMoveBuilder, SwapMoveStrategy},
 };
 
@@ -25,121 +27,6 @@ pub struct SimulatedAnnealingConfig {
     pub cooling: f64,
     pub key_switches: usize,
     pub stall_accepted: usize,
-}
-
-#[derive(Deserialize, Default, Clone)]
-pub struct Targets {
-    pub effort: Target,
-    pub pinky_off_home: Target,
-    pub left_hand_usage: Target,
-    pub bigram_skips_1: Target,
-    pub bigram_skips_n: Target,
-    pub bigram_scissors: Target,
-    pub bigram_scissors_wide: Target,
-    pub bigram_lateral_stretches: Target,
-    pub trigram_skips_1_same_hand: Target,
-    pub trigram_skips_1_alternation: Target,
-    pub trigram_skips_n_same_hand: Target,
-    pub trigram_skips_n_alternation: Target,
-    pub trigram_scissors_same_hand: Target,
-    pub trigram_scissors_alternation: Target,
-    pub trigram_scissors_wide_same_hand: Target,
-    pub trigram_scissors_wide_alternation: Target,
-    pub trigram_lateral_stretches_same_hand: Target,
-    pub trigram_lateral_stretches_alternation: Target,
-    pub trigram_redirects_strong: Target,
-    pub trigram_redirects_weak: Target,
-    pub trigram_roll_ratio: Target,
-    pub trigram_roll_ratio_bigrams: Target,
-    pub trigram_alternations: Target,
-}
-
-#[derive(Deserialize, Clone)]
-pub struct Target {
-    pub value: f64,
-    pub weight: f64,
-    #[serde(default = "default_scale")]
-    pub scale: f64,
-}
-
-impl Default for Target {
-    fn default() -> Self {
-        Self {
-            value: 0.0,
-            weight: 0.0,
-            scale: 1.0,
-        }
-    }
-}
-
-fn default_scale() -> f64 {
-    1.0
-}
-
-impl Target {
-    pub fn score(&self, current_value: f64) -> f64 {
-        self.weight * ((current_value - self.value).abs() / self.scale)
-    }
-}
-
-impl SimpleStats {
-    pub fn score(&self, targets: &Targets) -> f64 {
-        targets.effort.score(self.effort)
-            + targets.pinky_off_home.score(self.pinky_off_home)
-            + targets.left_hand_usage.score(self.left_hand_usage)
-            + targets.bigram_skips_1.score(self.bigram_skips_1)
-            + targets.bigram_skips_n.score(self.bigram_skips_n)
-            + targets.bigram_scissors.score(self.bigram_scissors)
-            + targets
-                .bigram_scissors_wide
-                .score(self.bigram_scissors_wide)
-            + targets
-                .bigram_lateral_stretches
-                .score(self.bigram_lateral_stretches)
-            + targets
-                .trigram_skips_1_same_hand
-                .score(self.trigram_skips_1_same_hand)
-            + targets
-                .trigram_skips_1_alternation
-                .score(self.trigram_skips_1_alternation)
-            + targets
-                .trigram_skips_n_same_hand
-                .score(self.trigram_skips_n_same_hand)
-            + targets
-                .trigram_skips_n_alternation
-                .score(self.trigram_skips_n_alternation)
-            + targets
-                .trigram_scissors_same_hand
-                .score(self.trigram_scissors_same_hand)
-            + targets
-                .trigram_scissors_alternation
-                .score(self.trigram_scissors_alternation)
-            + targets
-                .trigram_scissors_wide_same_hand
-                .score(self.trigram_scissors_wide_same_hand)
-            + targets
-                .trigram_scissors_wide_alternation
-                .score(self.trigram_scissors_wide_alternation)
-            + targets
-                .trigram_lateral_stretches_same_hand
-                .score(self.trigram_lateral_stretches_same_hand)
-            + targets
-                .trigram_lateral_stretches_alternation
-                .score(self.trigram_lateral_stretches_alternation)
-            + targets
-                .trigram_redirects_strong
-                .score(self.trigram_redirects_strong)
-            + targets
-                .trigram_redirects_weak
-                .score(self.trigram_redirects_weak)
-            + targets.trigram_roll_ratio.score(self.trigram_roll_ratio)
-            + targets
-                .trigram_roll_ratio_bigrams
-                .score(self.trigram_roll_ratio_bigrams)
-            + targets
-                .trigram_alternations
-                .score(self.trigram_alternations)
-    }
 }
 
 #[derive(Clone)]
@@ -287,10 +174,10 @@ impl HillClimbOptimizer {
         Self { analyzer, targets }
     }
 
-    fn get_stats(&self, layout: &Layout) -> SimpleStats {
-        let mut metrics = SimpleMetrics::default();
+    fn get_stats(&self, layout: &Layout) -> Stats {
+        let mut metrics = Metrics::default();
         self.analyzer.analyze(layout, &mut metrics);
-        SimpleStats::from(metrics)
+        Stats::from(metrics)
     }
 }
 
@@ -369,10 +256,10 @@ impl SimulatedAnnealingOptimizer {
         }
     }
 
-    fn get_stats(&self, layout: &Layout) -> SimpleStats {
-        let mut metrics = SimpleMetrics::default();
+    fn get_stats(&self, layout: &Layout) -> Stats {
+        let mut metrics = Metrics::default();
         self.analyzer.analyze(layout, &mut metrics);
-        SimpleStats::from(metrics)
+        Stats::from(metrics)
     }
 }
 
@@ -765,44 +652,51 @@ mod tests {
     use assert2::check;
 
     use super::*;
+    use crate::stats::*;
 
     #[test]
     fn it_gives_the_right_score() {
-        let stats = SimpleStats {
-            total_chars: 10.0,
-            effort: 10.0,
-            pinky_off_home: 10.0,
-            finger_usage: [].into(),
-            row_usage: [].into(),
-            column_usage: [].into(),
-            left_hand_usage: 10.0,
-            right_hand_usage: 90.0,
-            bigram_skips_1: 10.0,
-            bigram_skips_n: 10.0,
-            bigram_scissors: 10.0,
-            bigram_scissors_wide: 10.0,
-            bigram_lateral_stretches: 10.0,
-            bigram_others: 0.0,
-            trigram_skips_1_same_hand: 10.0,
-            trigram_skips_1_alternation: 10.0,
-            trigram_skips_n_same_hand: 10.0,
-            trigram_skips_n_alternation: 10.0,
-            trigram_scissors_same_hand: 10.0,
-            trigram_scissors_alternation: 10.0,
-            trigram_scissors_wide_same_hand: 10.0,
-            trigram_scissors_wide_alternation: 10.0,
-            trigram_lateral_stretches_same_hand: 10.0,
-            trigram_lateral_stretches_alternation: 10.0,
-            trigram_redirects_strong: 10.0,
-            trigram_redirects_weak: 10.0,
-            trigram_roll_in: 10.0,
-            trigram_roll_out: 90.0,
-            trigram_roll_ratio: 10.0,
-            trigram_roll_in_bigrams: 10.0,
-            trigram_roll_out_bigrams: 90.0,
-            trigram_roll_ratio_bigrams: 10.0,
-            trigram_alternations: 10.0,
-            trigram_others: 0.0,
+        let stats = Stats {
+            general: GeneralStats {
+                total_chars: 10.0,
+                effort: 10.0,
+                pinky_off_home: 10.0,
+                finger_usage: [].into(),
+                row_usage: [].into(),
+                column_usage: [].into(),
+                left_hand_usage: 10.0,
+                right_hand_usage: 90.0,
+            },
+            bigram: BigramStats {
+                skips_1: 10.0,
+                skips_n: 10.0,
+                scissors: 10.0,
+                scissors_wide: 10.0,
+                lateral_stretches: 10.0,
+                others: 0.0,
+            },
+            trigram: TrigramStats {
+                skips_1_same_hand: 10.0,
+                skips_1_alternation: 10.0,
+                skips_n_same_hand: 10.0,
+                skips_n_alternation: 10.0,
+                scissors_same_hand: 10.0,
+                scissors_alternation: 10.0,
+                scissors_wide_same_hand: 10.0,
+                scissors_wide_alternation: 10.0,
+                lateral_stretches_same_hand: 10.0,
+                lateral_stretches_alternation: 10.0,
+                redirects_strong: 10.0,
+                redirects_weak: 10.0,
+                roll_in: 10.0,
+                roll_out: 90.0,
+                roll_ratio: 10.0,
+                roll_in_bigrams: 10.0,
+                roll_out_bigrams: 90.0,
+                roll_ratio_bigrams: 10.0,
+                alternations: 10.0,
+                others: 0.0,
+            },
         };
 
         let targets = Targets {

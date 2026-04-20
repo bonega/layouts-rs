@@ -1,0 +1,83 @@
+{% for section in stats.sections %}
+#[derive(Debug, Default, PartialEq)]
+pub struct {{ section.name | capitalize }}Stats {
+    {%- for stat in section.stats %}
+    pub {{ stat.name }}: {{ stat.ty | print_ty() }},
+    {%- endfor %}
+}
+{% endfor %}
+
+#[derive(Debug, Default, PartialEq)]
+pub struct Stats {
+    {%- for section in stats.sections %}
+    pub {{ section.name }}: {{ section.name | capitalize }}Stats,
+    {%- endfor %}
+}
+
+fn map_sum<K: Eq + Hash>(map: &IndexMap<K, f64>, predicate: impl Fn(&K) -> bool) -> f64 {
+    map.iter()
+        .filter(|(k, _)| predicate(k))
+        .map(|(_, v)| *v)
+        .sum()
+}
+
+fn normalize<K: Eq + Hash + Clone>(map: &IndexMap<K, f64>, total: f64) -> IndexMap<K, f64> {
+    map.iter()
+        .map(|(k, v)| (k.clone(), 100.0 * v / total))
+        .collect()
+}
+
+fn pct(v: f64, total: f64) -> f64 {
+    100.0 * v / total
+}
+
+fn ratio(a: f64, b: f64) -> f64 {
+    if a + b > 0.0 { 100.0 * a / (a + b) } else { 50.0 }
+}
+
+impl From<Metrics> for Stats {
+    #[allow(unused_parens)]
+    fn from(metrics: Metrics) -> Self {
+        let Metrics {
+            {%- for metric in metrics %}
+            {{ metric.name }},
+            {%- endfor %}
+        } = metrics;
+
+        {% for stat_let in stats.lets %}
+        let {{ stat_let.name }} = {{ stat_let.value | print_expr() }};
+        {%- endfor %}
+
+        Self {
+            {%- for section in stats.sections %}
+            {{ section.name }}: {{ section.name | capitalize }}Stats {
+                {%- for stat in section.stats %}
+                {{ stat | print_stat_value() }}
+                {%- endfor %}
+            },
+            {%- endfor %}
+        }
+    }
+}
+
+impl fmt::Display for Stats {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        {%- for section in stats.sections %}
+        writeln!(f, "{{ section.name }}:")?;
+        {%- for stat in section.stats %}
+        {%- match stat.ty %}
+        {%- when dsl::Ty::Scalar %}
+        writeln!(f, "  {{ stat.name }}: {:.2}", self.{{ section.name }}.{{ stat.name }})?;
+        {%- when dsl::Ty::Map(_) %}
+        writeln!(f, "  {{ stat.name }}:")?;
+        let mut entries: Vec<_> = self.{{ section.name }}.{{ stat.name }}.iter().collect();
+        entries.sort_by_key(|(k, _)| *k);
+        for (k, v) in entries {
+            writeln!(f, "    {:?}: {:.2}", k, v)?;
+        }
+        {%- endmatch %}
+        {%- endfor %}
+        {%- endfor %}
+        Ok(())
+    }
+}

@@ -8,9 +8,9 @@ use layouts_rs::{
     config::{Config, OptimizationConfig},
     corpus::Corpus,
     layout::Layout,
-    metrics::SimpleMetrics,
+    metrics::Metrics,
     optimizer::{self, HillClimbOptimizer, Optimizer, SimulatedAnnealingOptimizer},
-    stats::SimpleStats,
+    stats::Stats,
 };
 use rand::{Rng, rng};
 
@@ -172,9 +172,9 @@ impl Command {
                 let corpus = args.common.corpus();
                 let analyzer = Analyzer::new(corpus);
 
-                let mut metrics = SimpleMetrics::default();
+                let mut metrics = Metrics::default();
                 analyzer.analyze(&layout, &mut metrics);
-                let stats = SimpleStats::from(metrics);
+                let stats = Stats::from(metrics);
                 let score = stats.score(&config.optimization.targets);
 
                 info!("Layout:\n{layout}");
@@ -198,9 +198,9 @@ impl Command {
                 );
                 let optimized_layout = optimizer.optimize(&layout, args.run_options.clone().into());
 
-                let mut metrics = SimpleMetrics::default();
+                let mut metrics = Metrics::default();
                 analyzer.analyze(&optimized_layout, &mut metrics);
-                let stats = SimpleStats::from(metrics);
+                let stats = Stats::from(metrics);
                 let score = stats.score(&config.optimization.targets);
 
                 info!("Optimized Layout:\n{optimized_layout}");

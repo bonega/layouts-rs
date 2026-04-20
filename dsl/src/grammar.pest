@@ -1,0 +1,67 @@
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" | "\u{0C}" }
+COMMENT    = _{ ("//" | "#") ~ (!"\n" ~ ANY)* }
+
+rules = { SOI ~ item* ~ EOI }
+item = _{ metrics | stats | targets }
+
+// Metrics
+
+metrics = { "metrics" ~ "{" ~ metric* ~ "}" }
+metric = {
+    ident ~ "on" ~ metric_category
+    ~ metric_value?
+    ~ metric_condition?
+    ~ metric_group?
+    ~ ";"
+}
+
+metric_value        = { "value" ~ ( metric_value_set | metric_value_add ) }
+metric_value_set    = { "=" ~ rust_expression }
+metric_value_add    = { "+=" ~ rust_expression }
+metric_condition    = { "where" ~ rust_expression }
+metric_group        = { "group" ~ "by" ~ path ~ "as" ~ ident }
+
+metric_category     = _{ category_bigram | category_trigram | category_unigram }
+category_unigram    = { "unigram" }
+category_bigram     = { "bigram"  ~ ("(" ~ ident ~ ")")? }
+category_trigram    = { "trigram" ~ ("(" ~ ident ~ ")")? }
+
+// Stats
+
+stats = { "stats" ~ "{" ~ stats_let* ~ stats_section* ~ "}" }
+
+stats_let       = { "let" ~ ident ~ "=" ~ expression ~ ";" }
+stats_section   = { "section" ~ ident ~ "{" ~ stat* ~ "}" }
+
+stat        = { ident ~ "=" ~ stat_value ~ ";" }
+stat_value  = _{ call_percent | call_ratio | call_normalize | call_identity | call_reference }
+
+call_percent    = { "percent"   ~ "(" ~ expression ~ "," ~ expression ~ ")" }
+call_ratio      = { "ratio"     ~ "(" ~ expression ~ "," ~ expression ~ ")" }
+call_normalize  = { "normalize" ~ "(" ~ expression ~ "," ~ expression ~ ")" }
+call_identity   = { "identity"  ~ "(" ~ path ~ ")" }
+call_reference  = { path }
+
+// Targets
+
+targets = { "targets" ~ "{" ~ target* ~ "}" }
+target = { ident ~ "=" ~ path ~ ";" }
+
+// Expressions
+
+expression = { term ~ ("+" ~ term)* }
+
+term = _{ call_sum | "(" ~ expression ~ ")" | ident }
+
+call_sum = {
+    "sum" ~ "(" ~ ident ~ ")" ~ "where" ~ rust_expression
+  | "sum" ~ "(" ~ ident ~ ")"
+}
+
+rust_expression    = { "\"" ~ rust_content ~ "\"" }
+rust_content = { (!"\"" ~ ANY)* }
+
+// Primitives
+
+path  = @{ ident ~ ("." ~ ident)* }
+ident = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }

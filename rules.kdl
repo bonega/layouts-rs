@@ -1,0 +1,134 @@
+metrics {
+  total_chars on unigram;
+  pinky_off_home on unigram
+    where "unigram.key.finger.kind == FingerKind::Pinky && !unigram.key.finger_home";
+  effort on unigram
+    value += "unigram.key.effort * count";
+  column_usage on unigram
+    group by unigram.key.position.c as usize;
+  row_usage on unigram
+    group by unigram.key.position.r as usize;
+  finger_usage on unigram
+    group by unigram.key.finger as Finger;
+  bigram_skips_1 on bigram(SameFingerSkip)
+    where "units == 1";
+  bigram_skips_n on bigram(SameFingerSkip)
+    where "units > 1";
+  bigram_lateral_stretches on bigram(LateralStretch);
+  bigram_scissors on bigram(Scissor)
+    where "units == 1";
+  bigram_scissors_wide on bigram(Scissor)
+    where "units > 1";
+  bigram_others on bigram(Other);
+  trigram_skips_1_same_hand on trigram(SameFingerSkip)
+    where "same_hand && units == 1";
+  trigram_skips_n_same_hand on trigram(SameFingerSkip)
+    where "same_hand && units > 1";
+  trigram_skips_1_alternation on trigram(SameFingerSkip)
+    where "!same_hand && units == 1";
+  trigram_skips_n_alternation on trigram(SameFingerSkip)
+    where "!same_hand && units > 1";
+  trigram_scissors_same_hand on trigram(Scissor)
+    where "same_hand && units < 2";
+  trigram_scissors_alternation on trigram(Scissor)
+    where "!same_hand && units < 2";
+  trigram_scissors_wide_same_hand on trigram(Scissor)
+    where "same_hand && units >= 2";
+  trigram_scissors_wide_alternation on trigram(Scissor)
+    where "!same_hand && units >= 2";
+  trigram_lateral_stretches_same_hand on trigram(LateralStretch)
+    where "same_hand";
+  trigram_lateral_stretches_alternation on trigram(LateralStretch)
+    where "!same_hand";
+  trigram_redirects_strong on trigram(Redirect)
+    where "!weak";
+  trigram_redirects_weak on trigram(Redirect)
+    where "weak";
+  trigram_roll_in on trigram(Roll)
+    where "triple && inward";
+  trigram_roll_out on trigram(Roll)
+    where "triple && !inward";
+  trigram_roll_in_bigrams on trigram(Roll)
+    where "!triple && inward";
+  trigram_roll_out_bigrams on trigram(Roll)
+    where "!triple && !inward";
+  trigram_alternations on trigram(Alternation);
+  trigram_others on trigram(Other);
+}
+
+stats {
+  let left_hand_usage = sum(finger_usage) where "group.hand == Hand::Left";
+  let right_hand_usage = sum(finger_usage) where "group.hand == Hand::Right";
+  let total_hand_usage = left_hand_usage + right_hand_usage;
+  let total_row_usage = sum(row_usage);
+  let total_column_usage = sum(column_usage);
+
+  section general {
+    total_chars = total_chars;
+    effort = percent(effort, total_chars);
+    pinky_off_home = percent(pinky_off_home, total_chars);
+    finger_usage = normalize(finger_usage, total_hand_usage);
+    row_usage = normalize(row_usage, total_row_usage);
+    column_usage = normalize(column_usage, total_column_usage);
+    left_hand_usage = percent(left_hand_usage, total_hand_usage);
+    right_hand_usage = percent(right_hand_usage, total_hand_usage);
+  }
+
+  section bigram {
+    skips_1 = percent(bigram_skips_1, total_chars);
+    skips_n = percent(bigram_skips_n, total_chars);
+    scissors = percent(bigram_scissors, total_chars);
+    scissors_wide = percent(bigram_scissors_wide, total_chars);
+    lateral_stretches = percent(bigram_lateral_stretches, total_chars);
+    others = percent(bigram_others, total_chars);
+  }
+
+  section trigram {
+    skips_1_same_hand = percent(trigram_skips_1_same_hand, total_chars);
+    skips_1_alternation = percent(trigram_skips_1_alternation, total_chars);
+    skips_n_same_hand = percent(trigram_skips_n_same_hand, total_chars);
+    skips_n_alternation = percent(trigram_skips_n_alternation, total_chars);
+    scissors_same_hand = percent(trigram_scissors_same_hand, total_chars);
+    scissors_alternation = percent(trigram_scissors_alternation, total_chars);
+    scissors_wide_same_hand = percent(trigram_scissors_wide_same_hand, total_chars);
+    scissors_wide_alternation = percent(trigram_scissors_wide_alternation, total_chars);
+    lateral_stretches_same_hand = percent(trigram_lateral_stretches_same_hand, total_chars);
+    lateral_stretches_alternation = percent(trigram_lateral_stretches_alternation, total_chars);
+    redirects_strong = percent(trigram_redirects_strong, total_chars);
+    redirects_weak = percent(trigram_redirects_weak, total_chars);
+    roll_in = percent(trigram_roll_in, total_chars);
+    roll_out = percent(trigram_roll_out, total_chars);
+    roll_ratio = ratio(trigram_roll_in, trigram_roll_out);
+    roll_in_bigrams = percent(trigram_roll_in_bigrams, total_chars);
+    roll_out_bigrams = percent(trigram_roll_out_bigrams, total_chars);
+    roll_ratio_bigrams = ratio(trigram_roll_in_bigrams, trigram_roll_out_bigrams);
+    alternations = percent(trigram_alternations, total_chars);
+    others = percent(trigram_others, total_chars);
+  }
+}
+
+targets {
+  effort = general.effort;
+  pinky_off_home = general.pinky_off_home;
+  left_hand_usage = general.left_hand_usage;
+  bigram_skips_1 = bigram.skips_1;
+  bigram_skips_n = bigram.skips_n;
+  bigram_scissors = bigram.scissors;
+  bigram_scissors_wide = bigram.scissors_wide;
+  bigram_lateral_stretches = bigram.lateral_stretches;
+  trigram_skips_1_same_hand = trigram.skips_1_same_hand;
+  trigram_skips_1_alternation = trigram.skips_1_alternation;
+  trigram_skips_n_same_hand = trigram.skips_n_same_hand;
+  trigram_skips_n_alternation = trigram.skips_n_alternation;
+  trigram_scissors_same_hand = trigram.scissors_same_hand;
+  trigram_scissors_alternation = trigram.scissors_alternation;
+  trigram_scissors_wide_same_hand = trigram.scissors_wide_same_hand;
+  trigram_scissors_wide_alternation = trigram.scissors_wide_alternation;
+  trigram_lateral_stretches_same_hand = trigram.lateral_stretches_same_hand;
+  trigram_lateral_stretches_alternation = trigram.lateral_stretches_alternation;
+  trigram_redirects_strong = trigram.redirects_strong;
+  trigram_redirects_weak = trigram.redirects_weak;
+  trigram_roll_ratio = trigram.roll_ratio;
+  trigram_roll_ratio_bigrams = trigram.roll_ratio_bigrams;
+  trigram_alternations = trigram.alternations;
+}

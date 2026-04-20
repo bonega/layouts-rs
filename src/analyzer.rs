@@ -56,8 +56,6 @@ impl Analyzer {
     pub fn analyze(&self, layout: &Layout, metrics: &mut impl MetricsCollector) {
         let lookup: KeyLookup = layout.keys().collect();
 
-        metrics.collect_metric(Metric::CorpusLenght(self.corpus.chars_length));
-
         for (char, count) in self.corpus.unigrams.iter() {
             let Some(key) = lookup.get(char) else {
                 continue;
@@ -108,16 +106,9 @@ mod tests {
             trigrams: [(('[', '[', '['), 10.0)].into(),
         };
 
-        let mut metrics = MockMetricsCollector::new();
-        metrics
-            .expect_collect_metric()
-            .with(eq(Metric::CorpusLenght(100.0)))
-            .once()
-            .return_const(());
-
         let analyzer = Analyzer::new(corpus);
 
-        analyzer.analyze(&qwerty, &mut metrics)
+        analyzer.analyze(&qwerty, &mut MockMetricsCollector::new())
     }
 
     #[rstest]
@@ -133,11 +124,6 @@ mod tests {
         let key = qwerty.key_for('a').unwrap();
 
         let mut metrics = MockMetricsCollector::new();
-        metrics
-            .expect_collect_metric()
-            .with(eq(Metric::CorpusLenght(100.0)))
-            .once()
-            .return_const(());
         metrics
             .expect_collect_metric()
             .with(eq(Metric::Unigram(Unigram::new(key), 1.0)))
@@ -163,7 +149,6 @@ mod tests {
     fn it_generates_metrics(qwerty: Layout) {
         #[derive(Default, Debug, PartialEq)]
         struct FakeMetricsCollector {
-            total_chars: f64,
             unigrams: f64,
             bigrams: f64,
             trigrams: f64,
@@ -180,9 +165,6 @@ mod tests {
                     }
                     Metric::Trigram(_, count) => {
                         self.trigrams += count;
-                    }
-                    Metric::CorpusLenght(length) => {
-                        self.total_chars = length;
                     }
                 }
             }
@@ -208,7 +190,6 @@ mod tests {
                     unigrams: 1.0,
                     bigrams: 2.0,
                     trigrams: 3.0,
-                    total_chars: 100.0,
                 }
         );
     }
