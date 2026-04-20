@@ -1,8 +1,10 @@
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::fmt;
+use std::hash::Hash;
 use std::sync::Arc;
 
+use indexmap::IndexMap;
 use log::{debug, info};
 use rand::{Rng, prelude::*, rngs::StdRng};
 use rayon::prelude::*;
@@ -365,12 +367,12 @@ mod optimizer_tests {
         let optimizer = HillClimbOptimizer::new(
             analyzer,
             Targets {
-                effort: Target {
+                effort: SingleTarget {
                     value: 0.0,
                     weight: 1.0,
                     scale: 1.0,
                 },
-                ..Default::default()
+                ..default_targets!()
             },
         );
 
@@ -405,12 +407,12 @@ mod optimizer_tests {
         let optimizer = SimulatedAnnealingOptimizer::new(
             analyzer,
             Targets {
-                effort: Target {
+                effort: SingleTarget {
                     value: 0.0,
                     weight: 1.0,
                     scale: 1.0,
                 },
-                ..Default::default()
+                ..default_targets!()
             },
             SimulatedAnnealingConfig {
                 key_switches: 2,

@@ -49,7 +49,7 @@ macro_rules! finger_home_key {
 #[cfg(test)]
 macro_rules! optimizer_target {
     ($value:expr, $weight:expr) => {
-        crate::optimizer::Target {
+        crate::optimizer::SingleTarget {
             value: $value,
             weight: $weight,
             scale: 1.0,

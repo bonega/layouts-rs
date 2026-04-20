@@ -105,6 +105,14 @@ mod filters {
     }
 
     #[askama::filter_fn]
+    pub fn print_target_ty(ty: &Ty, _: &dyn askama::Values) -> askama::Result<String> {
+        Ok(match ty {
+            Ty::Scalar => "SingleTarget".to_string(),
+            Ty::Map(kind) => format!("MapTarget<{kind}>"),
+        })
+    }
+
+    #[askama::filter_fn]
     pub fn print_rust(expr: &RustExpression, _: &dyn askama::Values) -> askama::Result<String> {
         Ok(expr.0.clone())
     }

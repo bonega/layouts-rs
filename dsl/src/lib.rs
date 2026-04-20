@@ -282,13 +282,18 @@ impl StatValue {
 pub struct Target {
     pub name: String,
     pub source: String,
+    pub ty: Ty,
 }
 impl<'i> From<Pair<'i, Rule>> for Target {
     fn from(pair: Pair<'i, Rule>) -> Self {
         let mut inner = pair.into_inner();
         let name = inner.next().unwrap().as_str().to_string();
         let source = inner.next().unwrap().as_str().to_string();
-        Self { name, source }
+        Self {
+            name,
+            source,
+            ty: Ty::Scalar,
+        }
     }
 }
 
@@ -388,7 +393,7 @@ pub fn parse(src: &str) -> anyhow::Result<Rules> {
 
     let mut metrics = vec![];
     let mut stats_pair = None;
-    let mut targets = vec![];
+    let mut targets: Vec<Target> = vec![];
 
     for pair in pairs.into_iter().next().unwrap().into_inner() {
         match pair.as_rule() {
@@ -428,6 +433,24 @@ pub fn parse(src: &str) -> anyhow::Result<Rules> {
             let ty = stat.value.ty(&env)?;
             stat.ty = ty;
         }
+    }
+
+    let stats_env: HashMap<String, Ty> = stats
+        .sections
+        .iter()
+        .flat_map(|s| {
+            s.stats
+                .iter()
+                .map(|stat| (format!("{}.{}", s.name, stat.name), stat.ty.clone()))
+        })
+        .collect();
+
+    for target in &mut targets {
+        let ty = stats_env
+            .get(&target.source)
+            .cloned()
+            .ok_or_else(|| anyhow!("undefined reference: {}", target.source))?;
+        target.ty = ty;
     }
 
     Ok(Rules {
@@ -551,10 +574,12 @@ mod tests {
                     Target {
                         name: "left_hand_usage".to_string(),
                         source: "general.left_hand_usage".to_string(),
+                        ty: Ty::Map("Finger".to_string()),
                     },
                     Target {
                         name: "finger_usage".to_string(),
                         source: "general.finger_usage".to_string(),
+                        ty: Ty::Scalar,
                     }
                 ]
         );

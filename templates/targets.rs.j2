@@ -1,35 +1,46 @@
-#[derive(Deserialize, Default, Clone)]
+#[allow(unused)]
+use crate::layout::*;
+
+#[derive(Deserialize, Clone)]
 pub struct Targets {
     {%- for target in targets %}
-    pub {{ target.name }}: Target,
+    pub {{ target.name }}: {{ target.ty | print_target_ty() }},
     {%- endfor %}
 }
 
 #[derive(Deserialize, Clone)]
-pub struct Target {
+pub struct SingleTarget {
     pub value: f64,
     pub weight: f64,
-    #[serde(default = "default_scale")]
     pub scale: f64,
 }
 
-impl Default for Target {
-    fn default() -> Self {
-        Self {
-            value: 0.0,
-            weight: 0.0,
-            scale: 1.0,
-        }
+#[derive(Deserialize, Clone)]
+pub struct MapTarget<K>
+where
+    K: std::hash::Hash + Eq,
+{
+    pub weight: f64,
+    pub scale: f64,
+    #[serde(alias = "value")]
+    pub values: IndexMap<K, f64>,
+}
+
+impl SingleTarget {
+    pub fn score(&self, current_value: f64) -> f64 {
+        self.weight * ((current_value - self.value).abs() / self.scale)
     }
 }
 
-fn default_scale() -> f64 {
-    1.0
-}
-
-impl Target {
-    pub fn score(&self, current_value: f64) -> f64 {
-        self.weight * ((current_value - self.value).abs() / self.scale)
+impl<K: Hash + Eq> MapTarget<K> {
+    pub fn score(&self, current_values: &IndexMap<K, f64>) -> f64 {
+        current_values
+            .iter()
+            .map(|(k, &v)| {
+                let target = self.values.get(k).copied().unwrap_or(0.0);
+                self.weight * ((v - target).abs() / self.scale)
+            })
+            .sum()
     }
 }
 
@@ -37,9 +48,29 @@ impl Stats {
     pub fn score(&self, targets: &Targets) -> f64 {
         let mut score = 0.0;
         {%- for target in targets %}
-        score += targets.{{ target.name }}.score(self.{{ target.source }});
+        score += targets.{{ target.name }}.score(
+            {%- if target.ty == dsl::Ty::Scalar %}
+            self.{{ target.source }}
+            {%- else %}
+            &self.{{ target.source }}
+            {%- endif %}
+        );
         {%- endfor %}
-
         score
     }
+}
+
+#[cfg(test)]
+macro_rules! default_targets {
+    () => {
+        Targets {
+            {%- for target in targets %}
+            {% if target.ty == dsl::Ty::Scalar %}
+            {{ target.name }}: SingleTarget { value: 0.0, weight: 0.0, scale: 1.0 },
+            {%- else %}
+            {{ target.name }}: MapTarget { weight: 0.0, scale: 1.0, values: IndexMap::new() },
+            {%- endif %}
+            {%- endfor %}
+        }
+    };
 }

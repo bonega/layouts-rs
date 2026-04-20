@@ -46,7 +46,8 @@ impl Key {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize)]
+#[serde(from = "u8")]
 pub struct Finger {
     pub hand: Hand,
     pub kind: FingerKind,
