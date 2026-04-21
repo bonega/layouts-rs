@@ -71,6 +71,9 @@ impl MetricsCollector for Metrics {
                 {% call collect_metric(metric) %}{% endcall %}
                 {% endif %}{% endfor %}
                 for kind in bigram.kinds {
+                    {% for metric in metrics %}{% if metric.category.is_bigram_kind("_") %}
+                    {% call collect_metric(metric) %}{% endcall %}
+                    {% endif %}{% endfor %}
                     match kind {
                         BigramKind::SameFingerSkip { units } => { {{ collect_bigram_metrics_kind("SameFingerSkip") }} }
                         BigramKind::LateralStretch { finger, units } => { {{ collect_bigram_metrics_kind("LateralStretch") }} }
@@ -84,6 +87,9 @@ impl MetricsCollector for Metrics {
                 {% call collect_metric(metric) %}{% endcall %}
                 {% endif %}{% endfor %}
                 for kind in trigram.kinds {
+                    {% for metric in metrics %}{% if metric.category.is_trigram_kind("_") %}
+                    {% call collect_metric(metric) %}{% endcall %}
+                    {% endif %}{% endfor %}
                     match kind {
                         TrigramKind::SameFingerSkip { units, same_hand } => { {{ collect_trigram_metrics_kind("SameFingerSkip") }} }
                         TrigramKind::Roll { triple, inward } => { {{ collect_trigram_metrics_kind("Roll") }} }
