@@ -19,7 +19,7 @@ metric_value        = { "value" ~ ( metric_value_set | metric_value_add ) }
 metric_value_set    = { "=" ~ rust_expression }
 metric_value_add    = { "+=" ~ rust_expression }
 metric_condition    = { "where" ~ rust_expression }
-metric_group        = { "group" ~ "by" ~ path ~ "as" ~ ident }
+metric_group        = { "group" ~ "by" ~ rust_expression ~ "as" ~ rust_expression }
 
 metric_category     = _{ category_bigram | category_trigram | category_unigram }
 category_unigram    = { "unigram" }

@@ -11,9 +11,9 @@ if {{ metric.condition | print_rust_opt() | assigned_or("true") }} {
   {% when dsl::Ty::Map(ty) %}
       {% match metric.value %}
       {% when dsl::MetricValue::Set(expression) %}
-          *self.{{ metric.name }}.entry({{ metric.group.as_ref().unwrap().key }}).or_default() = {{ expression | print_rust() }};
+          *self.{{ metric.name }}.entry({{ metric.group.as_ref().unwrap().key | print_rust() }}.into()).or_default() = {{ expression | print_rust() }};
       {% when dsl::MetricValue::Add(expression) %}
-          *self.{{ metric.name }}.entry({{ metric.group.as_ref().unwrap().key }}).or_default() += {{ expression | print_rust() }};
+          *self.{{ metric.name }}.entry({{ metric.group.as_ref().unwrap().key | print_rust() }}.into()).or_default() += {{ expression | print_rust() }};
 
       {% endmatch %}
   {% endmatch %}

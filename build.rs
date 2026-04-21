@@ -100,7 +100,7 @@ mod filters {
     pub fn print_ty(ty: &Ty, _: &dyn askama::Values) -> askama::Result<String> {
         Ok(match ty {
             Ty::Scalar => "f64".to_string(),
-            Ty::Map(kind) => format!("IndexMap<{kind}, f64>"),
+            Ty::Map(kind) => format!("IndexMap<{}, f64>", kind.0),
         })
     }
 
@@ -108,7 +108,7 @@ mod filters {
     pub fn print_target_ty(ty: &Ty, _: &dyn askama::Values) -> askama::Result<String> {
         Ok(match ty {
             Ty::Scalar => "SingleTarget".to_string(),
-            Ty::Map(kind) => format!("MapTarget<{kind}>"),
+            Ty::Map(kind) => format!("MapTarget<{}>", kind.0),
         })
     }
 

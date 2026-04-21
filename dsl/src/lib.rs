@@ -78,14 +78,14 @@ impl Default for MetricValue {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct MetricGroup {
-    pub key: String,
-    pub kind: String,
+    pub key: RustExpression,
+    pub kind: RustExpression,
 }
 impl<'i> From<Pair<'i, Rule>> for MetricGroup {
     fn from(pair: Pair<'i, Rule>) -> Self {
         let mut inner = pair.into_inner();
-        let key = inner.next().unwrap().as_str().to_string();
-        let kind = inner.next().unwrap().as_str().to_string();
+        let key = inner.next().unwrap().into();
+        let kind = inner.next().unwrap().into();
         Self { key, kind }
     }
 }
@@ -372,7 +372,7 @@ impl<'i> From<Pair<'i, Rule>> for RustExpression {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Ty {
     Scalar,
-    Map(String),
+    Map(RustExpression),
 }
 impl Ty {
     fn is_scalar(&self) -> bool {
@@ -474,7 +474,7 @@ mod tests {
                 finger_usage on unigram
                     value += "count"
                     where "ngram.key.ch != ' '"
-                    group by ngram.key.finger as Finger;
+                    group by "ngram.key.finger" as "Finger";
             }
 
             stats {
@@ -503,10 +503,10 @@ mod tests {
                     category: MetricCategory::Unigram,
                     value: MetricValue::Add(RustExpression("count".to_string())),
                     condition: Some(RustExpression("ngram.key.ch != ' '".to_string())),
-                    ty: Ty::Map("Finger".to_string()),
+                    ty: Ty::Map(RustExpression("Finger".to_string())),
                     group: Some(MetricGroup {
-                        key: "ngram.key.finger".to_string(),
-                        kind: "Finger".to_string(),
+                        key: RustExpression("ngram.key.finger".to_string()),
+                        kind: RustExpression("Finger".to_string()),
                     }),
                 }]
         );
@@ -557,7 +557,7 @@ mod tests {
                                         condition: None,
                                     },
                                 ),
-                                ty: Ty::Map("Finger".to_string()),
+                                ty: Ty::Map(RustExpression("Finger".to_string())),
                             }
                         ],
                     }],
@@ -574,12 +574,12 @@ mod tests {
                     Target {
                         name: "left_hand_usage".to_string(),
                         source: "general.left_hand_usage".to_string(),
-                        ty: Ty::Map("Finger".to_string()),
+                        ty: Ty::Scalar,
                     },
                     Target {
                         name: "finger_usage".to_string(),
                         source: "general.finger_usage".to_string(),
-                        ty: Ty::Scalar,
+                        ty: Ty::Map(RustExpression("Finger".to_string())),
                     }
                 ]
         );
