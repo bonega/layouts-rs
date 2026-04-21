@@ -47,17 +47,6 @@ macro_rules! finger_home_key {
 }
 
 #[cfg(test)]
-macro_rules! optimizer_target {
-    ($value:expr, $weight:expr) => {
-        crate::targets::SingleTarget {
-            value: $value,
-            weight: $weight,
-            scale: 1.0,
-        }
-    };
-}
-
-#[cfg(test)]
 macro_rules! ngram {
     ($layout:expr, $char:expr) => {
         crate::ngrams::Unigram::new($layout.key_for($char).unwrap())
