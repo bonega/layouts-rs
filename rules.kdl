@@ -11,31 +11,31 @@ metrics {
   finger_usage on unigram
     group by "unigram.key.finger" as "u8";
   bigram_skips_1 on bigram(SameFingerSkip)
-    where "units <= 1.5";
+    where "units == 1";
   bigram_skips_n on bigram(SameFingerSkip)
-    where "units > 1.5";
+    where "units > 1";
   bigram_lateral_stretches on bigram(LateralStretch);
   bigram_scissors on bigram(Scissor)
-    where "units <= 1.5";
+    where "units == 1";
   bigram_scissors_wide on bigram(Scissor)
-    where "units > 1.5";
+    where "units > 1";
   bigram_others on bigram(Other);
   trigram_skips_1_same_hand on trigram(SameFingerSkip)
-    where "same_hand && units <= 1.5";
+    where "same_hand && units == 1";
   trigram_skips_n_same_hand on trigram(SameFingerSkip)
-    where "same_hand && units > 1.5";
+    where "same_hand && units > 1";
   trigram_skips_1_alternation on trigram(SameFingerSkip)
-    where "!same_hand && units <= 1.5";
+    where "!same_hand && units == 1";
   trigram_skips_n_alternation on trigram(SameFingerSkip)
-    where "!same_hand && units > 1.5";
+    where "!same_hand && units > 1";
   trigram_scissors_same_hand on trigram(Scissor)
-    where "same_hand && units < 2.0";
+    where "same_hand && units == 1";
   trigram_scissors_alternation on trigram(Scissor)
-    where "!same_hand && units < 2.0";
+    where "!same_hand && units == 1";
   trigram_scissors_wide_same_hand on trigram(Scissor)
-    where "same_hand && units >= 2.0";
+    where "same_hand && units > 1";
   trigram_scissors_wide_alternation on trigram(Scissor)
-    where "!same_hand && units >= 2.0";
+    where "!same_hand && units > 1";
   trigram_lateral_stretches_same_hand on trigram(LateralStretch)
     where "same_hand";
   trigram_lateral_stretches_alternation on trigram(LateralStretch)
