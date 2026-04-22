@@ -1,5 +1,7 @@
 use std::collections::HashMap;
+use std::collections::hash_map::DefaultHasher;
 use std::fmt;
+use std::hash::{Hash, Hasher};
 
 use serde::{Deserialize, Deserializer};
 
@@ -309,6 +311,14 @@ impl Layout {
         self.keys
             .rows_iter()
             .flat_map(|row| row.iter().filter_map(|key| key.as_ref()))
+    }
+
+    pub fn hash(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        for key in self.keys() {
+            key.ch.hash(&mut hasher);
+        }
+        hasher.finish()
     }
 }
 
