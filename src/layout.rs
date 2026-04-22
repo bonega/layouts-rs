@@ -9,6 +9,60 @@ use crate::matrix::{Matrix, Pos};
 
 const NONE_CHAR: char = '_';
 
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+#[serde(from = "[f64; 2]")]
+pub struct Coords {
+    pub y: f64,
+    pub x: f64,
+}
+impl Coords {
+    pub fn new(y: f64, x: f64) -> Self {
+        Self { y, x }
+    }
+
+    pub fn distance(&self, other: &Coords) -> f64 {
+        (self.y - other.y).hypot(self.x - other.x)
+    }
+
+    pub fn vertical_distance(&self, other: &Coords) -> f64 {
+        (self.y - other.y).abs()
+    }
+
+    pub fn horizontal_distance(&self, other: &Coords) -> f64 {
+        (self.x - other.x).abs()
+    }
+}
+impl From<[f64; 2]> for Coords {
+    fn from(value: [f64; 2]) -> Self {
+        Self {
+            y: value[0],
+            x: value[1],
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+#[serde(from = "[f64; 2]")]
+pub struct KeySize {
+    pub height: f64,
+    pub width: f64,
+}
+
+impl KeySize {
+    pub fn new(height: f64, width: f64) -> Self {
+        Self { height, width }
+    }
+}
+
+impl From<[f64; 2]> for KeySize {
+    fn from(value: [f64; 2]) -> Self {
+        Self {
+            height: value[0],
+            width: value[1],
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Key {
     pub ch: char,
@@ -16,16 +70,28 @@ pub struct Key {
     pub position: Pos,
     pub finger_home: bool,
     pub effort: f64,
+    pub center: Coords,
+    pub key_size: KeySize,
 }
 
 impl Key {
-    pub fn new(ch: char, finger: Finger, position: Pos, effort: f64, finger_home: bool) -> Self {
+    pub fn new(
+        ch: char,
+        finger: Finger,
+        position: Pos,
+        effort: f64,
+        finger_home: bool,
+        center: Coords,
+        key_size: KeySize,
+    ) -> Self {
         Self {
             ch,
             finger,
             position,
             effort,
             finger_home,
+            center,
+            key_size,
         }
     }
 
@@ -34,17 +100,15 @@ impl Key {
     }
 
     pub fn row_distance(&self, other: &Key) -> f64 {
-        self.position.r.abs_diff(other.position.r) as f64
+        self.center.vertical_distance(&other.center) / self.key_size.height
     }
 
     pub fn column_distance(&self, other: &Key) -> f64 {
-        self.position.c.abs_diff(other.position.c) as f64
+        self.center.horizontal_distance(&other.center) / self.key_size.width
     }
 
     pub fn distance(&self, other: &Key) -> f64 {
-        (self.row_distance(other))
-            .hypot(self.column_distance(other))
-            .round()
+        self.row_distance(other).hypot(self.column_distance(other))
     }
 }
 
@@ -124,8 +188,15 @@ pub enum FingerKind {
 pub struct Config {
     pub finger_assignment: Matrix<u8>,
     pub finger_effort: Matrix<f64>,
+    pub key_centers: Matrix<Coords>,
+    #[serde(default = "default_key_size")]
+    pub key_size: KeySize,
     #[serde(deserialize_with = "deserialize_finger_home_positions")]
     pub finger_home_positions: HashMap<u8, Pos>,
+}
+
+fn default_key_size() -> KeySize {
+    KeySize::new(1.0, 1.0)
 }
 
 fn deserialize_finger_home_positions<'de, D>(deserializer: D) -> Result<HashMap<u8, Pos>, D::Error>
@@ -155,6 +226,7 @@ impl Layout {
                 .collect(),
         )?;
 
+        Self::check_matrix("key centers", &definition, &config.key_centers)?;
         Self::check_matrix("finger assignment", &definition, &config.finger_assignment)?;
         Self::check_matrix("finger effort", &definition, &config.finger_effort)?;
         Self::check_finger_home_positions(
@@ -162,6 +234,14 @@ impl Layout {
             &config.finger_assignment,
             &config.finger_home_positions,
         )?;
+
+        if config.key_size.height <= 0.0 || config.key_size.width <= 0.0 {
+            anyhow::bail!(
+                "expected key_size to be positive, received [{}, {}]",
+                config.key_size.height,
+                config.key_size.width
+            );
+        }
 
         let mut keys = Matrix::filled(definition.rows, definition.columns, None);
 
@@ -178,11 +258,24 @@ impl Layout {
 
                 let finger = Finger::from(finger_index);
                 let effort = *config.finger_effort.get(&pos).unwrap();
+                let coords = *config.key_centers.get(&pos).unwrap();
+                let center = Coords::new(
+                    coords.y * config.key_size.height,
+                    coords.x * config.key_size.width,
+                );
                 let finger_home = config
                     .finger_home_positions
                     .get(&finger.into())
                     .is_some_and(|hp| hp.r == r && hp.c == c);
-                let key = Key::new(ch, finger, pos, effort, finger_home);
+                let key = Key::new(
+                    ch,
+                    finger,
+                    pos,
+                    effort,
+                    finger_home,
+                    center,
+                    config.key_size,
+                );
 
                 *keys.get_mut(&pos).unwrap() = Some(key);
             }
@@ -357,6 +450,51 @@ pub mod fixtures {
             _ z x c v b   n m , . / _
             "#,
             &Config {
+                key_size: KeySize::new(1.0, 1.0),
+                key_centers: matrix!([
+                    [
+                        coords!(0.0, 0.0),
+                        coords!(0.0, 1.0),
+                        coords!(0.0, 2.0),
+                        coords!(0.0, 3.0),
+                        coords!(0.0, 4.0),
+                        coords!(0.0, 5.0),
+                        coords!(0.0, 6.0),
+                        coords!(0.0, 7.0),
+                        coords!(0.0, 8.0),
+                        coords!(0.0, 9.0),
+                        coords!(0.0, 10.0),
+                        coords!(0.0, 11.0)
+                    ],
+                    [
+                        coords!(1.0, 0.0),
+                        coords!(1.0, 1.0),
+                        coords!(1.0, 2.0),
+                        coords!(1.0, 3.0),
+                        coords!(1.0, 4.0),
+                        coords!(1.0, 5.0),
+                        coords!(1.0, 6.0),
+                        coords!(1.0, 7.0),
+                        coords!(1.0, 8.0),
+                        coords!(1.0, 9.0),
+                        coords!(1.0, 10.0),
+                        coords!(1.0, 11.0)
+                    ],
+                    [
+                        coords!(2.0, 0.0),
+                        coords!(2.0, 1.0),
+                        coords!(2.0, 2.0),
+                        coords!(2.0, 3.0),
+                        coords!(2.0, 4.0),
+                        coords!(2.0, 5.0),
+                        coords!(2.0, 6.0),
+                        coords!(2.0, 7.0),
+                        coords!(2.0, 8.0),
+                        coords!(2.0, 9.0),
+                        coords!(2.0, 10.0),
+                        coords!(2.0, 11.0)
+                    ],
+                ]),
                 finger_assignment: matrix!([
                     [1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
                     [1, 1, 2, 3, 4, 4, 7, 7, 8, 9, 10, 10],
@@ -422,10 +560,10 @@ mod tests {
 
         #[test]
         fn it_checks_row_distance() {
-            let key1 = key!('q', 1, pos!(0, 0));
-            let key2 = key!('w', 1, pos!(0, 1));
-            let key3 = key!('a', 1, pos!(1, 0));
-            let key4 = key!('z', 1, pos!(2, 0));
+            let key1 = key!('q', 1, pos!(0, 0), 0.0, coords!(0.0, 0.0), size!(2.0, 1.0));
+            let key2 = key!('w', 1, pos!(0, 1), 0.0, coords!(0.0, 2.0), size!(2.0, 1.0));
+            let key3 = key!('a', 1, pos!(1, 0), 0.0, coords!(2.0, 0.0), size!(2.0, 1.0));
+            let key4 = key!('z', 1, pos!(2, 0), 0.0, coords!(4.0, 0.0), size!(2.0, 1.0));
 
             check!(key1.row_distance(&key2) == 0.0);
             check!(key1.row_distance(&key3) == 1.0);
@@ -435,10 +573,10 @@ mod tests {
 
         #[test]
         fn it_checks_column_distance() {
-            let key1 = key!('q', 1, pos!(0, 0));
-            let key2 = key!('w', 1, pos!(0, 1));
-            let key3 = key!('a', 1, pos!(1, 0));
-            let key4 = key!('e', 1, pos!(1, 2));
+            let key1 = key!('q', 1, pos!(0, 0), 0.0, coords!(0.0, 0.0), size!(1.0, 2.0));
+            let key2 = key!('w', 1, pos!(0, 1), 0.0, coords!(0.0, 2.0), size!(1.0, 2.0));
+            let key3 = key!('a', 1, pos!(1, 0), 0.0, coords!(2.0, 0.0), size!(1.0, 2.0));
+            let key4 = key!('e', 1, pos!(1, 2), 0.0, coords!(2.0, 4.0), size!(1.0, 2.0));
 
             check!(key1.column_distance(&key2) == 1.0);
             check!(key1.column_distance(&key3) == 0.0);
@@ -448,15 +586,15 @@ mod tests {
 
         #[test]
         fn it_checks_u_distance() {
-            let key1 = key!('q', 1, pos!(0, 0));
-            let key2 = key!('w', 1, pos!(0, 1));
-            let key3 = key!('a', 1, pos!(1, 0));
-            let key4 = key!('z', 1, pos!(2, 0));
+            let key1 = key!('q', 1, pos!(0, 0), 0.0, coords!(0.0, 0.0), size!(2.0, 2.0));
+            let key2 = key!('w', 1, pos!(0, 1), 0.0, coords!(0.0, 2.0), size!(2.0, 2.0));
+            let key3 = key!('a', 1, pos!(1, 0), 0.0, coords!(2.0, 0.0), size!(2.0, 2.0));
+            let key4 = key!('z', 1, pos!(2, 0), 0.0, coords!(4.0, 0.0), size!(2.0, 2.0));
 
             check!(key1.distance(&key2) == 1.0);
             check!(key1.distance(&key3) == 1.0);
-            check!(key2.distance(&key3) == 1.0);
-            check!(key2.distance(&key4) == 2.0);
+            check!(key2.distance(&key3) == (1.0f64).hypot(1.0));
+            check!(key2.distance(&key4) == (2.0f64).hypot(1.0));
         }
     }
 
@@ -469,6 +607,11 @@ mod tests {
                 Layout::new(
                     "ab\ncd",
                     &Config {
+                        key_size: KeySize::new(1.0, 1.0),
+                        key_centers: matrix!([
+                            [coords!(0.0, 0.0), coords!(0.0, 1.0)],
+                            [coords!(1.0, 0.0), coords!(1.0, 1.0)]
+                        ]),
                         finger_assignment: matrix!([[1, 2], [1, 2]]),
                         finger_effort: matrix!([[1.0, 1.0], [1.0, 1.0]]),
                         finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into()
@@ -480,6 +623,11 @@ mod tests {
                 Layout::new(
                     "abc\ndef",
                     &Config {
+                        key_size: KeySize::new(1.0, 1.0),
+                        key_centers: matrix!([
+                            [coords!(0.0, 0.0), coords!(0.0, 1.0), coords!(0.0, 2.0)],
+                            [coords!(1.0, 0.0), coords!(1.0, 1.0), coords!(1.0, 2.0)]
+                        ]),
                         finger_assignment: matrix!([[1, 2, 3], [1, 2, 3]]),
                         finger_effort: matrix!([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]),
                         finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1)), (3, pos!(0, 2))]
@@ -492,6 +640,11 @@ mod tests {
                 Layout::new(
                     "aa\naa",
                     &Config {
+                        key_size: KeySize::new(1.0, 1.0),
+                        key_centers: matrix!([
+                            [coords!(0.0, 0.0), coords!(0.0, 1.0)],
+                            [coords!(1.0, 0.0), coords!(1.0, 1.0)]
+                        ]),
                         finger_assignment: matrix!([[1, 2], [1, 2]]),
                         finger_effort: matrix!([[1.0, 1.0], [1.0, 1.0]]),
                         finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into()
@@ -504,6 +657,11 @@ mod tests {
                 Layout::new(
                     "abcde",
                     &Config {
+                        key_size: KeySize::new(1.0, 1.0),
+                        key_centers: matrix!([
+                            [coords!(0.0, 0.0), coords!(0.0, 1.0)],
+                            [coords!(1.0, 0.0), coords!(1.0, 1.0)]
+                        ]),
                         finger_assignment: matrix!([[1, 2], [1, 2]]),
                         finger_effort: matrix!([[1.0, 1.0], [1.0, 1.0]]),
                         finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into()
@@ -515,6 +673,11 @@ mod tests {
                 Layout::new(
                     "ab\ncd",
                     &Config {
+                        key_size: KeySize::new(1.0, 1.0),
+                        key_centers: matrix!([
+                            [coords!(0.0, 0.0), coords!(0.0, 1.0)],
+                            [coords!(1.0, 0.0), coords!(1.0, 1.0)]
+                        ]),
                         finger_assignment: matrix!([[1, 2, 3], [1, 2, 3]]),
                         finger_effort: matrix!([[1.0, 1.0], [1.0, 1.0]]),
                         finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into()
@@ -526,6 +689,11 @@ mod tests {
                 Layout::new(
                     "ab\ncd",
                     &Config {
+                        key_size: KeySize::new(1.0, 1.0),
+                        key_centers: matrix!([
+                            [coords!(0.0, 0.0), coords!(0.0, 1.0)],
+                            [coords!(1.0, 0.0), coords!(1.0, 1.0)]
+                        ]),
                         finger_assignment: matrix!([[1, 2], [1, 2]]),
                         finger_effort: matrix!([[1.0, 1.0], [1.0, 1.0]]),
                         finger_home_positions: [].into()
@@ -537,6 +705,11 @@ mod tests {
                 Layout::new(
                     "ab\ncd",
                     &Config {
+                        key_size: KeySize::new(1.0, 1.0),
+                        key_centers: matrix!([
+                            [coords!(0.0, 0.0), coords!(0.0, 1.0)],
+                            [coords!(1.0, 0.0), coords!(1.0, 1.0)]
+                        ]),
                         finger_assignment: matrix!([[1, 2], [1, 2]]),
                         finger_effort: matrix!([[1.0, 1.0], [1.0, 1.0]]),
                         finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 0))].into()
@@ -548,6 +721,11 @@ mod tests {
                 Layout::new(
                     "ab\ncd",
                     &Config {
+                        key_size: KeySize::new(1.0, 1.0),
+                        key_centers: matrix!([
+                            [coords!(0.0, 0.0), coords!(0.0, 1.0)],
+                            [coords!(1.0, 0.0), coords!(1.0, 1.0)]
+                        ]),
                         finger_assignment: matrix!([[1, 2], [1, 2]]),
                         finger_effort: matrix!([[1.0, 1.0], [1.0, 1.0]]),
                         finger_home_positions: [(1, pos!(0, 0)), (2, pos!(1, 0))].into()
@@ -559,6 +737,11 @@ mod tests {
                 Layout::new(
                     "_b\ncd",
                     &Config {
+                        key_size: KeySize::new(1.0, 1.0),
+                        key_centers: matrix!([
+                            [coords!(0.0, 0.0), coords!(0.0, 1.0)],
+                            [coords!(1.0, 0.0), coords!(1.0, 1.0)]
+                        ]),
                         finger_assignment: matrix!([[1, 2], [1, 2]]),
                         finger_effort: matrix!([[1.0, 1.0], [1.0, 1.0]]),
                         finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into()
@@ -573,6 +756,11 @@ mod tests {
             let layout = Layout::new(
                 "_ab\n_cd",
                 &Config {
+                    key_size: KeySize::new(1.0, 1.0),
+                    key_centers: matrix!([
+                        [coords!(0.0, 0.0), coords!(0.0, 1.0), coords!(0.0, 2.0)],
+                        [coords!(1.0, 0.0), coords!(1.0, 1.0), coords!(1.0, 2.0)]
+                    ]),
                     finger_assignment: matrix!([[1, 1, 2], [1, 1, 2]]),
                     finger_effort: matrix!([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]),
                     finger_home_positions: [(1, pos!(0, 1)), (2, pos!(0, 2))].into(),
@@ -598,6 +786,11 @@ mod tests {
             d e f
             "#,
                     &Config {
+                        key_size: KeySize::new(1.0, 1.0),
+                        key_centers: matrix!([
+                            [coords!(0.0, 0.0), coords!(0.0, 1.0), coords!(0.0, 2.0)],
+                            [coords!(1.0, 0.0), coords!(1.0, 1.0), coords!(1.0, 2.0)]
+                        ]),
                         finger_assignment: matrix!([[1, 2, 3], [1, 2, 3]]),
                         finger_effort: matrix!([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]),
                         finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1)), (3, pos!(0, 2))]
@@ -613,6 +806,11 @@ mod tests {
             let layout = Layout::new(
                 "abc\ndef",
                 &Config {
+                    key_size: KeySize::new(1.0, 1.0),
+                    key_centers: matrix!([
+                        [coords!(0.0, 0.0), coords!(0.0, 1.0), coords!(0.0, 2.0)],
+                        [coords!(1.0, 0.0), coords!(1.0, 1.0), coords!(1.0, 2.0)]
+                    ]),
                     finger_assignment: matrix!([[1, 2, 3], [1, 2, 3]]),
                     finger_effort: matrix!([[1.0, 1.0, 1.0], [2.0, 2.0, 2.0]]),
                     finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1)), (3, pos!(0, 2))]
@@ -642,6 +840,11 @@ mod tests {
             let layout = Layout::new(
                 "ab\ncd",
                 &Config {
+                    key_size: KeySize::new(1.0, 1.0),
+                    key_centers: matrix!([
+                        [coords!(0.0, 0.0), coords!(0.0, 1.0)],
+                        [coords!(1.0, 0.0), coords!(1.0, 1.0)]
+                    ]),
                     finger_assignment: matrix!([[1, 2], [1, 2]]),
                     finger_effort: matrix!([[1.0, 1.0], [1.0, 1.0]]),
                     finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
@@ -661,6 +864,11 @@ mod tests {
             let layout = Layout::new(
                 "ab\ncd",
                 &Config {
+                    key_size: KeySize::new(1.0, 1.0),
+                    key_centers: matrix!([
+                        [coords!(0.0, 0.0), coords!(0.0, 1.0)],
+                        [coords!(1.0, 0.0), coords!(1.0, 1.0)]
+                    ]),
                     finger_assignment: matrix!([[1, 2], [1, 2]]),
                     finger_effort: matrix!([[1.0, 1.0], [1.0, 1.0]]),
                     finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
@@ -681,6 +889,11 @@ mod tests {
             let mut layout = Layout::new(
                 "ab\ncd",
                 &Config {
+                    key_size: KeySize::new(1.0, 1.0),
+                    key_centers: matrix!([
+                        [coords!(0.0, 0.0), coords!(0.0, 1.0)],
+                        [coords!(1.0, 0.0), coords!(1.0, 1.0)]
+                    ]),
                     finger_assignment: matrix!([[1, 2], [1, 2]]),
                     finger_effort: matrix!([[1.0, 1.0], [1.0, 1.0]]),
                     finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
@@ -697,6 +910,11 @@ mod tests {
             let mut layout = Layout::new(
                 "ab\ncd",
                 &Config {
+                    key_size: KeySize::new(1.0, 1.0),
+                    key_centers: matrix!([
+                        [coords!(0.0, 0.0), coords!(0.0, 1.0)],
+                        [coords!(1.0, 0.0), coords!(1.0, 1.0)]
+                    ]),
                     finger_assignment: matrix!([[1, 2], [1, 2]]),
                     finger_effort: matrix!([[1.0, 1.0], [1.0, 1.0]]),
                     finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
@@ -714,6 +932,11 @@ mod tests {
             let layout = Layout::new(
                 "ab\ncd",
                 &Config {
+                    key_size: KeySize::new(1.0, 1.0),
+                    key_centers: matrix!([
+                        [coords!(0.0, 0.0), coords!(0.0, 1.0)],
+                        [coords!(1.0, 0.0), coords!(1.0, 1.0)]
+                    ]),
                     finger_assignment: matrix!([[1, 2], [1, 2]]),
                     finger_effort: matrix!([[1.0, 1.0], [1.0, 1.0]]),
                     finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),

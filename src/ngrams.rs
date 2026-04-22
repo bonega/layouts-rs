@@ -239,7 +239,7 @@ impl Bigram {
 
             if !PREFERRED_SCISSOR_PAIRS.contains(&(lower.finger.kind, upper.finger.kind)) {
                 kinds.push(BigramKind::Scissor {
-                    units: row_distance as u8,
+                    units: row_distance.round() as u8,
                     upper_finger: upper.finger.kind,
                     lower_finger: lower.finger.kind,
                 });

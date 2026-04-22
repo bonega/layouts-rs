@@ -137,6 +137,11 @@ mod single_moves_tests {
         let mut layout = Layout::new(
             "ab\ncd",
             &Config {
+                key_size: key_size!(1.0, 1.0),
+                key_centers: matrix!([
+                    [coords!(0.0, 0.0), coords!(0.0, 1.0)],
+                    [coords!(1.0, 0.0), coords!(1.0, 1.0)]
+                ]),
                 finger_assignment: matrix!([[1, 2], [1, 2]]),
                 finger_effort: matrix!([[1.0, 2.0], [3.0, 4.0]]),
                 finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
@@ -156,6 +161,11 @@ mod single_moves_tests {
         let original = Layout::new(
             "ab\ncd",
             &Config {
+                key_size: key_size!(1.0, 1.0),
+                key_centers: matrix!([
+                    [coords!(0.0, 0.0), coords!(0.0, 1.0)],
+                    [coords!(1.0, 0.0), coords!(1.0, 1.0)]
+                ]),
                 finger_assignment: matrix!([[1, 2], [1, 2]]),
                 finger_effort: matrix!([[1.0, 2.0], [3.0, 4.0]]),
                 finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
@@ -267,6 +277,11 @@ mod column_moves_tests {
         let mut layout = Layout::new(
             "ab\ncd",
             &Config {
+                key_size: key_size!(1.0, 1.0),
+                key_centers: matrix!([
+                    [coords!(0.0, 0.0), coords!(0.0, 1.0)],
+                    [coords!(1.0, 0.0), coords!(1.0, 1.0)]
+                ]),
                 finger_assignment: matrix!([[1, 2], [1, 2]]),
                 finger_effort: matrix!([[1.0, 2.0], [3.0, 4.0]]),
                 finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
@@ -288,6 +303,11 @@ mod column_moves_tests {
         let original = Layout::new(
             "ab\ncd",
             &Config {
+                key_size: key_size!(1.0, 1.0),
+                key_centers: matrix!([
+                    [coords!(0.0, 0.0), coords!(0.0, 1.0)],
+                    [coords!(1.0, 0.0), coords!(1.0, 1.0)]
+                ]),
                 finger_assignment: matrix!([[1, 2], [1, 2]]),
                 finger_effort: matrix!([[1.0, 2.0], [3.0, 4.0]]),
                 finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
@@ -401,6 +421,11 @@ mod row_moves_tests {
         let mut layout = Layout::new(
             "ab\ncd",
             &Config {
+                key_size: key_size!(1.0, 1.0),
+                key_centers: matrix!([
+                    [coords!(0.0, 0.0), coords!(0.0, 1.0)],
+                    [coords!(1.0, 0.0), coords!(1.0, 1.0)]
+                ]),
                 finger_assignment: matrix!([[1, 2], [1, 2]]),
                 finger_effort: matrix!([[1.0, 2.0], [3.0, 4.0]]),
                 finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
@@ -422,6 +447,11 @@ mod row_moves_tests {
         let original = Layout::new(
             "ab\ncd",
             &Config {
+                key_size: key_size!(1.0, 1.0),
+                key_centers: matrix!([
+                    [coords!(0.0, 0.0), coords!(0.0, 1.0)],
+                    [coords!(1.0, 0.0), coords!(1.0, 1.0)]
+                ]),
                 finger_assignment: matrix!([[1, 2], [1, 2]]),
                 finger_effort: matrix!([[1.0, 2.0], [3.0, 4.0]]),
                 finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
