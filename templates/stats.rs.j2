@@ -3,8 +3,8 @@ use std::hash::Hash;
 
 use indexmap::IndexMap;
 
-use crate::layout::*;
-use crate::metrics::*;
+#[allow(unused)] use crate::layout::*;
+#[allow(unused)] use crate::metrics::*;
 
 {% for section in stats.sections %}
 #[derive(Debug, Default, PartialEq)]

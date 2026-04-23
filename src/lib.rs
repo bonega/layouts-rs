@@ -24,14 +24,14 @@ macro_rules! matrix {
 #[macro_export]
 macro_rules! coords {
     ($x:expr, $y:expr) => {
-        crate::layout::Coords::new($x, $y)
+        $crate::layout::Coords::new($x, $y)
     };
 }
 
 #[macro_export]
 macro_rules! size {
     ($h:expr, $w:expr) => {
-        crate::layout::KeySize::new($h, $w)
+        $crate::layout::KeySize::new($h, $w)
     };
 }
 
