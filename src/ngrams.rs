@@ -13,6 +13,15 @@ const PREFERRED_SCISSOR_PAIRS: [(FingerKind, FingerKind); 6] = [
     (FingerKind::Ring, FingerKind::Middle),
 ];
 
+const LATERAL_STRETCH_PAIRS: [(FingerKind, FingerKind); 6] = [
+    (FingerKind::Index, FingerKind::Middle),
+    (FingerKind::Ring, FingerKind::Middle),
+    (FingerKind::Ring, FingerKind::Index),
+    (FingerKind::Pinky, FingerKind::Ring),
+    (FingerKind::Pinky, FingerKind::Middle),
+    (FingerKind::Pinky, FingerKind::Index),
+];
+
 #[derive(PartialEq, Debug)]
 pub struct Trigram {
     pub kinds: TrigramKinds,
@@ -208,28 +217,27 @@ impl Bigram {
             });
         }
 
+        // This differ from the doc definition (which uses 2.0 for adiacent keys and 3.5 for non
+        // adiacent; it also does not define any rule for pair like index pinky
         if let Some(finger_distance) = finger_distance
-            && finger_distance == 1
-            && col_distance >= 2.0
+            && finger_distance > 0
+            && col_distance >= (finger_distance as f64 + 1.0)
+            && ![key1.finger.kind, key2.finger.kind].contains(&FingerKind::Thumb)
         {
-            if key1.finger.kind > FingerKind::Middle || key2.finger.kind > FingerKind::Middle {
-                let highest_finger = key1.finger.max(key2.finger);
+            if LATERAL_STRETCH_PAIRS.contains(&(key1.finger.kind, key2.finger.kind)) {
                 kinds.push(BigramKind::LateralStretch {
-                    finger: highest_finger.kind,
+                    finger: key1.finger.kind,
                     units: col_distance as f32,
                 });
             }
 
-            if key1.finger.kind < FingerKind::Middle || key2.finger.kind < FingerKind::Middle {
-                let lowest_finger = key1.finger.min(key2.finger);
+            if LATERAL_STRETCH_PAIRS.contains(&(key2.finger.kind, key1.finger.kind)) {
                 kinds.push(BigramKind::LateralStretch {
-                    finger: lowest_finger.kind,
+                    finger: key2.finger.kind,
                     units: col_distance as f32,
                 });
             }
         }
-
-        // TODO: semiadiacent finger bigrams
 
         if let Some(finger_distance) = finger_distance
             && finger_distance >= 1
@@ -324,9 +332,13 @@ mod bigram_tests {
     #[case::left_index('d', 'g', vec![BigramKind::LateralStretch { finger: FingerKind::Index, units: 2.0 }])]
     #[case::left_index('e', 't', vec![BigramKind::LateralStretch { finger: FingerKind::Index, units: 2.0 }])]
     #[case::left_pinky('"', 's', vec![BigramKind::LateralStretch { finger: FingerKind::Pinky, units: 2.0 }])]
+    #[case::left_non_adiacent_ring('s', 'g', vec![BigramKind::LateralStretch { finger: FingerKind::Ring, units: 3.0 }])]
+    #[case::left_non_adiacent_pink('a', 'g', vec![BigramKind::LateralStretch { finger: FingerKind::Pinky, units: 4.0 }])]
     #[case::right_index('k', 'h', vec![BigramKind::LateralStretch { finger: FingerKind::Index, units: 2.0 }])]
     #[case::right_index('i', 'y', vec![BigramKind::LateralStretch { finger: FingerKind::Index, units: 2.0 }])]
     #[case::right_pinky('l', '\'', vec![BigramKind::LateralStretch { finger: FingerKind::Pinky, units: 2.0 }])]
+    #[case::right_non_adiacent_ring('h', 'l', vec![BigramKind::LateralStretch { finger: FingerKind::Ring, units: 3.0 }])]
+    #[case::right_non_adiacent_pink('h', ';', vec![BigramKind::LateralStretch { finger: FingerKind::Pinky, units: 4.0 }])]
     fn it_calculates_bigram_lateral_stretch(
         #[case] ch1: char,
         #[case] ch2: char,
@@ -447,6 +459,7 @@ mod trigram_tests {
     }
 
     #[rstest]
+    #[case::left_non_adiacent_cross_hand('s', 'y', 'g', vec![TrigramKind::LateralStretch { finger: FingerKind::Ring, units: 3.0, same_hand: false }, TrigramKind::Alternation ])]
     #[case::left_index_cross_hand('d', 'u', 'g', vec![ TrigramKind::LateralStretch { finger: FingerKind::Index, units: 2.0, same_hand: false }, TrigramKind::Alternation ])]
     #[case::right_index_cross_hand('k', 'e', 'h', vec![ TrigramKind::LateralStretch { finger: FingerKind::Index, units: 2.0, same_hand: false }, TrigramKind::Alternation ])]
     #[case::right_pinky_same_hand('l', 'i', '\'', vec![ TrigramKind::LateralStretch { finger: FingerKind::Pinky, units: 2.0, same_hand: true }, TrigramKind::Redirect { weak: true } ])]
@@ -490,12 +503,12 @@ mod trigram_tests {
 
     #[rstest]
     #[case::left_triple('q', 'w', 'e', vec![TrigramKind::Roll { triple: true, inward: true }])]
-    #[case::left_triple('q', 'e', 't', vec![TrigramKind::Roll { triple: true, inward: true }])]
-    #[case::left_triple('t', 'e', 'q', vec![TrigramKind::Roll { triple: true, inward: false }])]
+    #[case::left_triple('q', 'e', 'r', vec![TrigramKind::Roll { triple: true, inward: true }])]
+    #[case::left_triple('r', 'e', 'q', vec![TrigramKind::Roll { triple: true, inward: false }])]
     #[case::left_triple('e', 'w', 'q', vec![TrigramKind::Roll { triple: true, inward: false }])]
     #[case::right_triple('o', 'i', 'u', vec![TrigramKind::Roll { triple: true, inward: true }])]
-    #[case::right_triple('p', 'i', 'y', vec![TrigramKind::Roll { triple: true, inward: true }])]
-    #[case::right_triple('y', 'i', 'p', vec![TrigramKind::Roll { triple: true, inward: false }])]
+    #[case::right_triple('p', 'i', 'u', vec![TrigramKind::Roll { triple: true, inward: true }])]
+    #[case::right_triple('u', 'i', 'p', vec![TrigramKind::Roll { triple: true, inward: false }])]
     #[case::right_triple('i', 'o', 'p', vec![TrigramKind::Roll { triple: true, inward: false }])]
     #[case::left_triple_mixed_rows('a', 'w', 'd', vec![TrigramKind::Roll { triple: true, inward: true }])]
     #[case::left_double('q', 'w', 'p', vec![TrigramKind::Roll { triple: false, inward: true }])]
