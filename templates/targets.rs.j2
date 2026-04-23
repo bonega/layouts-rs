@@ -23,15 +23,13 @@ pub struct SingleTarget {
 }
 
 #[derive(Deserialize, Clone)]
-pub struct MapTarget<K>
-where
-    K: std::hash::Hash + Eq,
-{
-    pub weight: f64,
-    pub scale: f64,
+pub struct MapTarget<K: Hash + Eq> {
+    pub weight: IndexMap<K, f64>,
+    pub scale: IndexMap<K, f64>,
     #[serde(alias = "value")]
     pub values: IndexMap<K, f64>,
 }
+
 
 impl SingleTarget {
     pub fn score(&self, current_value: f64) -> f64 {
@@ -45,7 +43,10 @@ impl<K: Hash + Eq> MapTarget<K> {
             .iter()
             .map(|(k, &v)| {
                 let target = self.values.get(k).copied().unwrap_or(0.0);
-                self.weight * ((v - target).abs() / self.scale)
+                let weight = self.weight.get(k).unwrap_or(&0.0);
+                let scale = self.scale.get(k).unwrap_or(&1.0);
+
+                weight * ((v - target).abs() / scale)
             })
             .sum()
     }
@@ -74,7 +75,7 @@ pub fn default_targets() -> Targets {
         {% if target.ty == dsl::Ty::Scalar %}
         {{ target.name }}: SingleTarget { value: 0.0, weight: 0.0, scale: 1.0 },
         {%- else %}
-        {{ target.name }}: MapTarget { weight: 0.0, scale: 1.0, values: IndexMap::new() },
+        {{ target.name }}: MapTarget { weight: IndexMap::new(), scale: IndexMap::new(), values: IndexMap::new() },
         {%- endif %}
         {%- endfor %}
     }
