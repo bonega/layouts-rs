@@ -358,7 +358,9 @@ impl Expression {
 pub struct RustExpression(pub String);
 impl<'i> From<Pair<'i, Rule>> for RustExpression {
     fn from(pair: Pair<'i, Rule>) -> Self {
-        Self(unwrap_inner(pair).as_str().to_string())
+        let inner = unwrap_inner(pair);
+        let content = unwrap_inner(inner);
+        Self(content.as_str().to_string())
     }
 }
 

@@ -55,8 +55,11 @@ call_normalize  = { "normalize" ~ "(" ~ expression ~ "," ~ expression ~ ")" }
 call_topn       = { "topn" ~ "(" ~ expression ~ "," ~ integer ~ ")" }
 call_identity   = { "identity"  ~ "(" ~ path ~ ")" }
 
-rust_expression    = { "\"" ~ rust_content ~ "\"" }
-rust_content = { (!"\"" ~ ANY)* }
+rust_expression = { backtick_quoted | single_quoted }
+single_quoted   = { "\"" ~ single_content ~ "\"" }
+single_content  = { (!"\"" ~ ANY)* }
+backtick_quoted = { "`" ~ backtick_content ~ "`" }
+backtick_content = { (!"`" ~ ANY)* }
 
 // Primitives
 
