@@ -211,6 +211,10 @@ impl Bigram {
 
         let mut kinds = BigramKinds::new();
 
+        if [key1.finger.kind, key2.finger.kind].contains(&FingerKind::Thumb) {
+            return vec![BigramKind::Other].into_iter().collect();
+        }
+
         if key1.same_finger(key2) && (row_distance > 0.0 || col_distance > 0.0) {
             kinds.push(BigramKind::SameFingerSkip {
                 units: key1.distance(key2) as u8,
@@ -222,7 +226,6 @@ impl Bigram {
         if let Some(finger_distance) = finger_distance
             && finger_distance > 0
             && col_distance >= (finger_distance as f64 + 1.0)
-            && ![key1.finger.kind, key2.finger.kind].contains(&FingerKind::Thumb)
         {
             if LATERAL_STRETCH_PAIRS.contains(&(key1.finger.kind, key2.finger.kind)) {
                 kinds.push(BigramKind::LateralStretch {
