@@ -1,3 +1,5 @@
+// vim:ft=rust:noci
+
 {% macro collect_metric(metric) %}
 if {{ metric.condition | print_rust_opt() | assigned_or("true") }} {
   {% match metric.ty %}
