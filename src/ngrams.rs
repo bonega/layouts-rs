@@ -25,9 +25,9 @@ const LATERAL_STRETCH_PAIRS: [(FingerKind, FingerKind); 6] = [
 #[derive(PartialEq, Debug)]
 pub struct Trigram {
     pub kinds: TrigramKinds,
-    key1: Key,
-    key2: Key,
-    key3: Key,
+    pub key1: Key,
+    pub key2: Key,
+    pub key3: Key,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -171,8 +171,8 @@ impl Trigram {
 #[derive(PartialEq, Debug)]
 pub struct Bigram {
     pub kinds: BigramKinds,
-    key1: Key,
-    key2: Key,
+    pub key1: Key,
+    pub key2: Key,
 }
 
 #[derive(PartialEq, Debug, Clone)]

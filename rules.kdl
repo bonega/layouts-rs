@@ -9,7 +9,7 @@ metrics {
   row_usage on unigram
     group by "unigram.key.position.r" as "usize";
   finger_usage on unigram
-    group by "unigram.key.finger" as "u8";
+    group by "unigram.key.finger" as "Finger";
   bigram_skips_1 on bigram(SameFingerSkip)
     where "units == 1";
   bigram_skips_n on bigram(SameFingerSkip)
@@ -57,8 +57,8 @@ metrics {
 }
 
 stats {
-  let left_hand_usage = sum(finger_usage) where "*group <= 5";
-  let right_hand_usage = sum(finger_usage) where "*group >= 6";
+  let left_hand_usage = sum(finger_usage) where "group.hand == Hand::Left";
+  let right_hand_usage = sum(finger_usage) where "group.hand == Hand::Right";
   let total_hand_usage = left_hand_usage + right_hand_usage;
   let total_row_usage = sum(row_usage);
   let total_column_usage = sum(column_usage);

@@ -142,9 +142,9 @@ mod single_moves_tests {
                     [coords!(0.0, 0.0), coords!(0.0, 1.0)],
                     [coords!(1.0, 0.0), coords!(1.0, 1.0)]
                 ]),
-                finger_assignment: matrix!([[1, 2], [1, 2]]),
+                finger_assignment: matrix!(fingers, [[1, 2], [1, 2]]),
                 finger_effort: matrix!([[1.0, 2.0], [3.0, 4.0]]),
-                finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+                finger_home_positions: [(finger!(1), pos!(0, 0)), (finger!(2), pos!(0, 1))].into(),
             },
         )
         .unwrap();
@@ -166,9 +166,9 @@ mod single_moves_tests {
                     [coords!(0.0, 0.0), coords!(0.0, 1.0)],
                     [coords!(1.0, 0.0), coords!(1.0, 1.0)]
                 ]),
-                finger_assignment: matrix!([[1, 2], [1, 2]]),
+                finger_assignment: matrix!(fingers, [[1, 2], [1, 2]]),
                 finger_effort: matrix!([[1.0, 2.0], [3.0, 4.0]]),
-                finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+                finger_home_positions: [(finger!(1), pos!(0, 0)), (finger!(2), pos!(0, 1))].into(),
             },
         )
         .unwrap();
@@ -282,9 +282,9 @@ mod column_moves_tests {
                     [coords!(0.0, 0.0), coords!(0.0, 1.0)],
                     [coords!(1.0, 0.0), coords!(1.0, 1.0)]
                 ]),
-                finger_assignment: matrix!([[1, 2], [1, 2]]),
+                finger_assignment: matrix!(fingers, [[1, 2], [1, 2]]),
                 finger_effort: matrix!([[1.0, 2.0], [3.0, 4.0]]),
-                finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+                finger_home_positions: [(finger!(1), pos!(0, 0)), (finger!(2), pos!(0, 1))].into(),
             },
         )
         .unwrap();
@@ -308,9 +308,9 @@ mod column_moves_tests {
                     [coords!(0.0, 0.0), coords!(0.0, 1.0)],
                     [coords!(1.0, 0.0), coords!(1.0, 1.0)]
                 ]),
-                finger_assignment: matrix!([[1, 2], [1, 2]]),
+                finger_assignment: matrix!(fingers, [[1, 2], [1, 2]]),
                 finger_effort: matrix!([[1.0, 2.0], [3.0, 4.0]]),
-                finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+                finger_home_positions: [(finger!(1), pos!(0, 0)), (finger!(2), pos!(0, 1))].into(),
             },
         )
         .unwrap();
@@ -426,9 +426,9 @@ mod row_moves_tests {
                     [coords!(0.0, 0.0), coords!(0.0, 1.0)],
                     [coords!(1.0, 0.0), coords!(1.0, 1.0)]
                 ]),
-                finger_assignment: matrix!([[1, 2], [1, 2]]),
+                finger_assignment: matrix!(fingers, [[1, 2], [1, 2]]),
                 finger_effort: matrix!([[1.0, 2.0], [3.0, 4.0]]),
-                finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+                finger_home_positions: [(finger!(1), pos!(0, 0)), (finger!(2), pos!(0, 1))].into(),
             },
         )
         .unwrap();
@@ -452,9 +452,9 @@ mod row_moves_tests {
                     [coords!(0.0, 0.0), coords!(0.0, 1.0)],
                     [coords!(1.0, 0.0), coords!(1.0, 1.0)]
                 ]),
-                finger_assignment: matrix!([[1, 2], [1, 2]]),
+                finger_assignment: matrix!(fingers, [[1, 2], [1, 2]]),
                 finger_effort: matrix!([[1.0, 2.0], [3.0, 4.0]]),
-                finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+                finger_home_positions: [(finger!(1), pos!(0, 0)), (finger!(2), pos!(0, 1))].into(),
             },
         )
         .unwrap();

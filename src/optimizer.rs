@@ -403,9 +403,9 @@ mod optimizer_tests {
                     [coords!(0.0, 0.0), coords!(0.0, 1.0)],
                     [coords!(1.0, 0.0), coords!(1.0, 1.0)]
                 ]),
-                finger_assignment: matrix!([[1, 2], [1, 2]]),
+                finger_assignment: matrix!(fingers, [[1, 2], [1, 2]]),
                 finger_effort: matrix!([[1.0, 100.0], [100.0, 100.0]]),
-                finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+                finger_home_positions: [(finger!(1), pos!(0, 0)), (finger!(2), pos!(0, 1))].into(),
             },
         )
         .unwrap();
@@ -448,9 +448,9 @@ mod optimizer_tests {
                     [coords!(0.0, 0.0), coords!(0.0, 1.0)],
                     [coords!(1.0, 0.0), coords!(1.0, 1.0)]
                 ]),
-                finger_assignment: matrix!([[1, 2], [1, 2]]),
+                finger_assignment: matrix!(fingers, [[1, 2], [1, 2]]),
                 finger_effort: matrix!([[1.0, 100.0], [100.0, 100.0]]),
-                finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+                finger_home_positions: [(finger!(1), pos!(0, 0)), (finger!(2), pos!(0, 1))].into(),
             },
         )
         .unwrap();
@@ -507,9 +507,9 @@ mod optimizable_layout_tests {
                     [coords!(0.0, 0.0), coords!(0.0, 1.0)],
                     [coords!(1.0, 0.0), coords!(1.0, 1.0)]
                 ]),
-                finger_assignment: matrix!([[1, 2], [1, 2]]),
+                finger_assignment: matrix!(fingers, [[1, 2], [1, 2]]),
                 finger_effort: matrix!([[1.0, 50.0], [100.0, 200.0]]),
-                finger_home_positions: [(1, pos!(0, 0)), (2, pos!(0, 1))].into(),
+                finger_home_positions: [(finger!(1), pos!(0, 0)), (finger!(2), pos!(0, 1))].into(),
             },
         )
         .unwrap()

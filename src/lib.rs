@@ -14,6 +14,11 @@ macro_rules! key_size {
 
 #[macro_export]
 macro_rules! matrix {
+    (fingers, [$([$($x:expr),* $(,)?]),+ $(,)?]) => {
+        $crate::matrix::Matrix::new(vec![
+            $(vec![$(Some(finger!($x))),*]),+
+        ]).unwrap()
+    };
     ([$([$($x:expr),* $(,)?]),+ $(,)?]) => {
         $crate::matrix::Matrix::new(vec![
             $(vec![$($x),*]),+
@@ -62,13 +67,20 @@ macro_rules! key {
     ($ch:expr, $finger_number:expr, $pos:expr, $effort:expr, $coords:expr, $size:expr) => {
         crate::layout::Key::new(
             $ch,
-            crate::layout::Finger::from($finger_number),
+            crate::layout::Finger::try_from($finger_number as u8).unwrap(),
             $pos,
             $effort,
             false,
             $coords,
             $size,
         )
+    };
+}
+
+#[cfg(test)]
+macro_rules! finger {
+    ($num:expr) => {
+        crate::layout::Finger::try_from($num as u8).unwrap()
     };
 }
 
@@ -80,7 +92,7 @@ macro_rules! finger_home_key {
     ($ch:expr, $finger_number:expr, $pos:expr, $effort:expr) => {
         crate::layout::Key::new(
             $ch,
-            crate::layout::Finger::from($finger_number),
+            crate::layout::Finger::try_from($finger_number as u8).unwrap(),
             $pos,
             $effort,
             true,
@@ -118,6 +130,7 @@ pub mod matrix;
 pub mod metrics;
 pub mod ngrams;
 pub mod optimizer;
+pub mod serialization;
 pub mod stats;
 pub mod swaps;
 pub mod targets;

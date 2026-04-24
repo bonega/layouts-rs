@@ -1,15 +1,7 @@
-use std::fmt;
-
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
 pub struct Pos {
     pub r: usize,
     pub c: usize,
-}
-
-impl fmt::Display for Pos {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({}, {})", self.r, self.c)
-    }
 }
 
 impl Pos {

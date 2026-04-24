@@ -6,6 +6,7 @@ use std::hash::Hash;
 use indexmap::IndexMap;
 
 #[allow(unused)] use crate::layout::*;
+#[allow(unused)] use crate::matrix::*;
 #[allow(unused)] use crate::metrics::*;
 
 {% for section in stats.sections %}
@@ -92,9 +93,9 @@ impl fmt::Display for Stats {
         {%- when dsl::Ty::Map(_) %}
         writeln!(f, "  {{ stat.name }}:")?;
         let mut entries: Vec<_> = self.{{ section.name }}.{{ stat.name }}.iter().collect();
-        entries.sort_by_key(|(k, _)| *k);
+        entries.sort_by(|a, b| a.0.partial_cmp(b.0).unwrap());
         for (k, v) in entries {
-            writeln!(f, "    {:?}: {:.2}", k, v)?;
+            writeln!(f, "    {}: {:.2}", k, v)?;
         }
         {%- endmatch %}
         {%- endfor %}
