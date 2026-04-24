@@ -44,7 +44,10 @@ impl<K: Hash + Eq> MapTarget<K> {
         current_values
             .iter()
             .map(|(k, &v)| {
-                let target = self.values.get(k).copied().unwrap_or(0.0);
+                let target = self.values.get(k).copied();
+                let Some(target) = target else {
+                    return 0.0;
+                };
                 let weight = self.weight.get(k).unwrap_or(&0.0);
                 let scale = self.scale.get(k).unwrap_or(&1.0);
 
