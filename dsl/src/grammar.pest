@@ -32,31 +32,28 @@ stats = { "stats" ~ "{" ~ stats_let* ~ stats_section* ~ "}" }
 
 stats_let       = { "let" ~ ident ~ "=" ~ expression ~ ";" }
 stats_section   = { "section" ~ ident ~ "{" ~ stat* ~ "}" }
-
-stat        = { ident ~ "=" ~ stat_value ~ ";" }
-stat_value  = _{ call_percent | call_ratio | call_normalize | call_identity | call_reference }
-
-call_percent    = { "percent"   ~ "(" ~ expression ~ "," ~ expression ~ ")" }
-call_ratio      = { "ratio"     ~ "(" ~ expression ~ "," ~ expression ~ ")" }
-call_normalize  = { "normalize" ~ "(" ~ expression ~ "," ~ expression ~ ")" }
-call_identity   = { "identity"  ~ "(" ~ path ~ ")" }
-call_reference  = { path }
+stat            = { ident ~ "=" ~ expression ~ ";" }
 
 // Targets
 
 targets = { "targets" ~ "{" ~ target* ~ "}" }
-target = { ident ~ "=" ~ path ~ ";" }
+target  = { ident ~ "=" ~ path ~ ";" }
 
 // Expressions
 
 expression = { term ~ ("+" ~ term)* }
 
-term = _{ call_sum | "(" ~ expression ~ ")" | ident }
+term = _{ call_percent | call_ratio | call_normalize | call_topn | call_sum | call_identity | "(" ~ expression ~ ")" | path }
 
 call_sum = {
-    "sum" ~ "(" ~ ident ~ ")" ~ "where" ~ rust_expression
-  | "sum" ~ "(" ~ ident ~ ")"
+    "sum" ~ "(" ~ expression ~ ")" ~ "where" ~ rust_expression
+  | "sum" ~ "(" ~ expression ~ ")"
 }
+call_percent    = { "percent"   ~ "(" ~ expression ~ "," ~ expression ~ ")" }
+call_ratio      = { "ratio"     ~ "(" ~ expression ~ "," ~ expression ~ ")" }
+call_normalize  = { "normalize" ~ "(" ~ expression ~ "," ~ expression ~ ")" }
+call_topn       = { "topn" ~ "(" ~ expression ~ "," ~ integer ~ ")" }
+call_identity   = { "identity"  ~ "(" ~ path ~ ")" }
 
 rust_expression    = { "\"" ~ rust_content ~ "\"" }
 rust_content = { (!"\"" ~ ANY)* }
@@ -65,3 +62,4 @@ rust_content = { (!"\"" ~ ANY)* }
 
 path  = @{ ident ~ ("." ~ ident)* }
 ident = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+integer = @{ ASCII_DIGIT+ }

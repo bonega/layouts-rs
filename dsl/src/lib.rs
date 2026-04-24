@@ -185,7 +185,7 @@ impl<'i> From<Pair<'i, Rule>> for StatsLet {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Stat {
     pub name: String,
-    pub value: StatValue,
+    pub value: Expression,
     pub ty: Ty,
 }
 impl<'i> From<Pair<'i, Rule>> for Stat {
@@ -197,83 +197,6 @@ impl<'i> From<Pair<'i, Rule>> for Stat {
             name,
             value,
             ty: Ty::Scalar,
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum StatValue {
-    Percent(Expression, Expression),
-    Ratio(Expression, Expression),
-    Normalize(Expression, Expression),
-    Reference(String),
-}
-impl<'i> From<Pair<'i, Rule>> for StatValue {
-    fn from(pair: Pair<'i, Rule>) -> Self {
-        match pair.as_rule() {
-            Rule::call_percent => {
-                let mut inner = pair.into_inner();
-                StatValue::Percent(inner.next().unwrap().into(), inner.next().unwrap().into())
-            }
-            Rule::call_ratio => {
-                let mut inner = pair.into_inner();
-                StatValue::Ratio(inner.next().unwrap().into(), inner.next().unwrap().into())
-            }
-            Rule::call_normalize => {
-                let mut inner = pair.into_inner();
-                StatValue::Normalize(inner.next().unwrap().into(), inner.next().unwrap().into())
-            }
-            Rule::call_identity => {
-                let mut inner = pair.into_inner();
-                StatValue::Reference(inner.next().unwrap().as_str().to_string())
-            }
-            Rule::call_reference => {
-                let mut inner = pair.into_inner();
-                StatValue::Reference(inner.next().unwrap().as_str().to_string())
-            }
-            _ => unreachable!("{:?}", pair.as_rule()),
-        }
-    }
-}
-impl StatValue {
-    fn ty(&self, env: &HashMap<String, Ty>) -> anyhow::Result<Ty> {
-        match self {
-            StatValue::Percent(e1, e2) => {
-                let ty1 = e1.ty(env)?;
-                let ty2 = e2.ty(env)?;
-
-                if !ty1.is_scalar() || !ty2.is_scalar() {
-                    return Err(anyhow!("percent value must be scalar: {ty1:?} vs {ty2:?}"));
-                }
-
-                Ok(ty1)
-            }
-            StatValue::Ratio(e1, e2) => {
-                let ty1 = e1.ty(env)?;
-                let ty2 = e2.ty(env)?;
-
-                if !ty1.is_scalar() || !ty2.is_scalar() {
-                    return Err(anyhow!("ratio value must be scalar: {ty1:?} vs {ty2:?}"));
-                }
-
-                Ok(ty1)
-            }
-            StatValue::Normalize(e1, e2) => {
-                let ty1 = e1.ty(env)?;
-                let ty2 = e2.ty(env)?;
-
-                if !(ty1.is_map() && ty2.is_scalar()) {
-                    return Err(anyhow!(
-                        "normalize values must be map and scalar: {ty1:?} vs {ty2:?}"
-                    ));
-                }
-
-                Ok(ty1)
-            }
-            StatValue::Reference(reference) => env
-                .get(reference)
-                .cloned()
-                .ok_or_else(|| anyhow!("undefined reference: {}", reference)),
         }
     }
 }
@@ -301,10 +224,20 @@ impl<'i> From<Pair<'i, Rule>> for Target {
 pub enum Expression {
     Ref(String),
     Sum {
-        reference: String,
+        expression: Box<Expression>,
         condition: Option<RustExpression>,
     },
     Add(Box<Expression>, Box<Expression>),
+    Percent(Box<Expression>, Box<Expression>),
+    Ratio(Box<Expression>, Box<Expression>),
+    Normalize {
+        map: Box<Expression>,
+        total: Box<Expression>,
+    },
+    TopN {
+        map: Box<Expression>,
+        n: usize,
+    },
 }
 impl<'i> From<Pair<'i, Rule>> for Expression {
     fn from(pair: Pair<'i, Rule>) -> Self {
@@ -316,14 +249,44 @@ impl<'i> From<Pair<'i, Rule>> for Expression {
             }
             Rule::call_sum => {
                 let mut inner = pair.into_inner();
-                let reference = inner.next().unwrap().as_str().to_string();
+                let expression = inner.next().unwrap().into();
                 let condition = inner.next().map(|p| p.into());
                 Expression::Sum {
-                    reference,
+                    expression: Box::new(expression),
                     condition,
                 }
             }
-            Rule::ident => Expression::Ref(pair.as_str().to_string()),
+            Rule::call_percent => {
+                let mut inner = pair.into_inner();
+                Expression::Percent(
+                    Box::new(inner.next().unwrap().into()),
+                    Box::new(inner.next().unwrap().into()),
+                )
+            }
+            Rule::call_ratio => {
+                let mut inner = pair.into_inner();
+                Expression::Ratio(
+                    Box::new(inner.next().unwrap().into()),
+                    Box::new(inner.next().unwrap().into()),
+                )
+            }
+            Rule::call_normalize => {
+                let mut inner = pair.into_inner();
+                let map = Box::new(inner.next().unwrap().into());
+                let total = Box::new(inner.next().unwrap().into());
+                Expression::Normalize { map, total }
+            }
+            Rule::call_topn => {
+                let mut inner = pair.into_inner();
+                let map = Box::new(inner.next().unwrap().into());
+                let n: usize = inner.next().unwrap().as_str().parse().unwrap();
+                Expression::TopN { map, n }
+            }
+            Rule::call_identity => {
+                let mut inner = pair.into_inner();
+                Expression::Ref(inner.next().unwrap().as_str().to_string())
+            }
+            Rule::path => Expression::Ref(pair.as_str().to_string()),
             _ => unreachable!("{:?}", pair.as_rule()),
         }
     }
@@ -335,14 +298,11 @@ impl Expression {
                 .get(name)
                 .cloned()
                 .ok_or_else(|| anyhow!("undefined reference: {}", name)),
-            Expression::Sum { reference, .. } => {
-                let ty = env
-                    .get(reference)
-                    .cloned()
-                    .ok_or_else(|| anyhow!("undefined reference: {}", reference))?;
+            Expression::Sum { expression, .. } => {
+                let ty = expression.ty(env)?;
 
                 if ty == Ty::Scalar {
-                    return Err(anyhow!("cannot sum a scalar value: {}", reference));
+                    return Err(anyhow!("cannot sum a scalar value: {:?}", ty));
                 }
 
                 Ok(Ty::Scalar)
@@ -356,6 +316,39 @@ impl Expression {
                 }
 
                 Ok(Ty::Scalar)
+            }
+            Expression::Percent(a, b) | Expression::Ratio(a, b) => {
+                let ty1 = a.ty(env)?;
+                let ty2 = b.ty(env)?;
+
+                if !ty1.is_scalar() || !ty2.is_scalar() {
+                    return Err(anyhow!("expected scalar values: {ty1:?} vs {ty2:?}"));
+                }
+
+                Ok(Ty::Scalar)
+            }
+            Expression::Normalize { map, total } => {
+                let map_ty = map.ty(env)?;
+
+                if !map_ty.is_map() {
+                    return Err(anyhow!("normalize map must be map: {map_ty:?}"));
+                }
+
+                let total_ty = total.ty(env)?;
+                if !total_ty.is_scalar() {
+                    return Err(anyhow!("normalize total must be scalar: {total_ty:?}"));
+                }
+
+                Ok(map_ty)
+            }
+            Expression::TopN { map, .. } => {
+                let map_ty = map.ty(env)?;
+
+                if !map_ty.is_map() {
+                    return Err(anyhow!("topn map must be map: {map_ty:?}"));
+                }
+
+                Ok(map_ty)
             }
         }
     }
@@ -522,14 +515,14 @@ mod tests {
                         StatsLet {
                             name: "left_hand_usage".to_string(),
                             value: Expression::Sum {
-                                reference: "finger_usage".to_string(),
+                                expression: Box::new(Expression::Ref("finger_usage".to_string())),
                                 condition: Some(RustExpression("hand == Hand::Left".to_string())),
                             },
                         },
                         StatsLet {
                             name: "right_hand_usage".to_string(),
                             value: Expression::Sum {
-                                reference: "finger_usage".to_string(),
+                                expression: Box::new(Expression::Ref("finger_usage".to_string())),
                                 condition: Some(RustExpression("hand == Hand::Right".to_string())),
                             },
                         },
@@ -539,24 +532,26 @@ mod tests {
                         stats: vec![
                             Stat {
                                 name: "left_hand_usage".to_string(),
-                                value: StatValue::Percent(
-                                    Expression::Ref("left_hand_usage".to_string()),
-                                    Expression::Add(
+                                value: Expression::Percent(
+                                    Box::new(Expression::Ref("left_hand_usage".to_string())),
+                                    Box::new(Expression::Add(
                                         Box::new(Expression::Ref("left_hand_usage".to_string())),
                                         Box::new(Expression::Ref("right_hand_usage".to_string())),
-                                    ),
+                                    )),
                                 ),
                                 ty: Ty::Scalar,
                             },
                             Stat {
                                 name: "finger_usage".to_string(),
-                                value: StatValue::Normalize(
-                                    Expression::Ref("finger_usage".to_string()),
-                                    Expression::Sum {
-                                        reference: "finger_usage".to_string(),
+                                value: Expression::Normalize {
+                                    map: Box::new(Expression::Ref("finger_usage".to_string())),
+                                    total: Box::new(Expression::Sum {
+                                        expression: Box::new(Expression::Ref(
+                                            "finger_usage".to_string()
+                                        )),
                                         condition: None,
-                                    },
-                                ),
+                                    }),
+                                },
                                 ty: Ty::Map(RustExpression("Finger".to_string())),
                             }
                         ],

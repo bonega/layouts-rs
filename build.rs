@@ -94,7 +94,7 @@ fn generate(
 }
 
 mod filters {
-    use dsl::{Expression, RustExpression, Stat, StatValue, Ty};
+    use dsl::{Expression, RustExpression, Stat, Ty};
 
     #[askama::filter_fn]
     pub fn print_ty(ty: &Ty, _: &dyn askama::Values) -> askama::Result<String> {
@@ -134,21 +134,8 @@ mod filters {
     pub fn print_stat_value(stat: &Stat, _: &dyn askama::Values) -> askama::Result<String> {
         let name = &stat.name;
         match &stat.value {
-            StatValue::Reference(reference) if reference == name => Ok(format!("{name},")),
-            value => Ok(format!("{name}: {},", stat_value_to_rust(value))),
-        }
-    }
-
-    fn stat_value_to_rust(value: &StatValue) -> String {
-        match value {
-            StatValue::Percent(a, b) => {
-                format!("pct({}, {})", expr_to_rust(a), expr_to_rust(b))
-            }
-            StatValue::Ratio(a, b) => format!("ratio({}, {})", expr_to_rust(a), expr_to_rust(b)),
-            StatValue::Normalize(map, total) => {
-                format!("normalize(&{}, {})", expr_to_rust(map), expr_to_rust(total))
-            }
-            StatValue::Reference(reference) => reference.clone(),
+            Expression::Ref(reference) if reference == name => Ok(format!("{name},")),
+            value => Ok(format!("{name}: {},", expr_to_rust(value))),
         }
     }
 
@@ -156,18 +143,38 @@ mod filters {
         match expr {
             Expression::Ref(name) => name.clone(),
             Expression::Sum {
-                reference,
+                expression,
                 condition,
             } => {
                 if let Some(condition) = condition {
-                    format!("map_sum(&{reference}, |group| {})", condition.0)
+                    format!(
+                        "map_sum({}, |group| {})",
+                        expr_to_rust_ref(expression),
+                        condition.0
+                    )
                 } else {
-                    format!("map_sum(&{reference}, |_| true)")
+                    format!("map_sum({}, |_| true)", expr_to_rust_ref(expression))
                 }
             }
-            Expression::Add(a, b) => {
-                format!("({} + {})", expr_to_rust(a), expr_to_rust(b))
+            Expression::Add(e1, e2) => format!("({} + {})", expr_to_rust(e1), expr_to_rust(e2)),
+            Expression::Percent(e1, e2) => {
+                format!("percentage({}, {})", expr_to_rust(e1), expr_to_rust(e2))
+            }
+            Expression::Ratio(e1, e2) => {
+                format!("ratio({}, {})", expr_to_rust(e1), expr_to_rust(e2))
+            }
+            Expression::Normalize { map, total } => format!(
+                "normalize({}, {})",
+                expr_to_rust_ref(map),
+                expr_to_rust(total)
+            ),
+            Expression::TopN { map, n } => {
+                format!("topn(({}), {n})", expr_to_rust_ref(map))
             }
         }
+    }
+
+    fn expr_to_rust_ref(expr: &Expression) -> String {
+        format!("&({})", expr_to_rust(expr))
     }
 }

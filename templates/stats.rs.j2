@@ -22,6 +22,7 @@ pub struct Stats {
     {%- endfor %}
 }
 
+#[allow(unused)]
 fn map_sum<K: Eq + Hash>(map: &IndexMap<K, f64>, predicate: impl Fn(&K) -> bool) -> f64 {
     map.iter()
         .filter(|(k, _)| predicate(k))
@@ -29,16 +30,26 @@ fn map_sum<K: Eq + Hash>(map: &IndexMap<K, f64>, predicate: impl Fn(&K) -> bool)
         .sum()
 }
 
+#[allow(unused)]
 fn normalize<K: Eq + Hash + Clone>(map: &IndexMap<K, f64>, total: f64) -> IndexMap<K, f64> {
     map.iter()
         .map(|(k, v)| (k.clone(), 100.0 * v / total))
         .collect()
 }
 
-fn pct(v: f64, total: f64) -> f64 {
+#[allow(unused)]
+fn topn<K: Eq + Hash + Clone>(map: &IndexMap<K, f64>, n: usize) -> IndexMap<K, f64> {
+    let mut entries: Vec<_> = map.iter().collect();
+    entries.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
+    entries.into_iter().take(n).map(|(k, v)| (k.clone(), *v)).collect()
+}
+
+#[allow(unused)]
+fn percentage(v: f64, total: f64) -> f64 {
     100.0 * v / total
 }
 
+#[allow(unused)]
 fn ratio(a: f64, b: f64) -> f64 {
     if a + b > 0.0 { 100.0 * a / (a + b) } else { 50.0 }
 }
