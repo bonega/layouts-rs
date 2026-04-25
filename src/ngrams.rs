@@ -4,15 +4,6 @@ use crate::layout::{FingerKind, Key};
 
 // Based on https://docs.google.com/document/d/1W0jhfqJI2ueJ2FNseR4YAFpNfsUM-_FlREHbpNGmC2o
 
-const PREFERRED_SCISSOR_PAIRS: [(FingerKind, FingerKind); 6] = [
-    (FingerKind::Index, FingerKind::Middle),
-    (FingerKind::Index, FingerKind::Pinky),
-    (FingerKind::Index, FingerKind::Ring),
-    (FingerKind::Pinky, FingerKind::Middle),
-    (FingerKind::Pinky, FingerKind::Ring),
-    (FingerKind::Ring, FingerKind::Middle),
-];
-
 const LATERAL_STRETCH_PAIRS: [(FingerKind, FingerKind); 6] = [
     (FingerKind::Index, FingerKind::Middle),
     (FingerKind::Ring, FingerKind::Middle),
@@ -252,14 +243,12 @@ impl Bigram {
                 (key2, key1)
             };
 
-            if !PREFERRED_SCISSOR_PAIRS.contains(&(lower.finger.kind, upper.finger.kind)) {
-                kinds.push(BigramKind::Scissor {
-                    units: row_distance as u8,
-                    upper_finger: upper.finger.kind,
-                    lower_finger: lower.finger.kind,
-                    adiacent: finger_distance == 1,
-                });
-            }
+            kinds.push(BigramKind::Scissor {
+                units: row_distance as u8,
+                upper_finger: upper.finger.kind,
+                lower_finger: lower.finger.kind,
+                adiacent: finger_distance == 1,
+            });
         }
 
         if kinds.is_empty() {
@@ -396,16 +385,6 @@ mod bigram_tests {
     #[case('a', 's')]
     #[case('d', 'y')]
     #[case('t', 'n')]
-    #[case('z', 's')]
-    #[case('z', 'w')]
-    #[case('v', 'e')]
-    #[case('m', 'i')]
-    #[case('x', 'd')]
-    #[case('l', 'i')]
-    #[case('.', 'i')]
-    #[case('x', 'e')]
-    #[case('f', 'q')]
-    #[case('j', 'p')]
     fn it_calculates_bigram_other(#[case] ch1: char, #[case] ch2: char, qwerty: Layout) {
         check!(
             ngram!(qwerty, ch1, ch2)
