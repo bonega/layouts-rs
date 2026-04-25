@@ -1,14 +1,9 @@
-layout := "colemak-dh"
-corpus := "./corpus/english.json"
-iterations := "10000"
-pinned := ""
+corpus := "./corpus/english.json,./corpus/italian.json"
 config := "config/example.toml"
-algorithm := "simulated_annealing"
 
-analyze:
-    cargo run --release -- analyze --layout {{layout}} --corpus {{corpus}} --config {{config}}
+analyze *args:
+    cargo run --release -- analyze -c {{config}} --corpus {{corpus}} {{args}}
 
-optimize:
-    cargo run --release -- optimize --layout {{layout}} --corpus {{corpus}} --config {{config}} --algorithm {{algorithm}} --iterations {{iterations}} --pinned "{{pinned}}" --level debug
+optimize *args:
+    cargo run --release -- optimize -c {{config}} --corpus {{corpus}} {{args}}
 
-run: analyze
