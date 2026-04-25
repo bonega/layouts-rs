@@ -48,12 +48,18 @@ struct OptimizeArgs {
 
 #[derive(Parser, Clone)]
 struct RunOptions {
-    #[arg(long, default_value = "10", help = "Number of optimization iterations")]
+    #[arg(
+        long,
+        short,
+        default_value = "10",
+        help = "Number of optimization iterations"
+    )]
     iterations: usize,
-    #[arg(long, help = "Random seed for optimization")]
+    #[arg(long, short, help = "Random seed for optimization")]
     seed: Option<u64>,
     #[arg(
         long,
+        short,
         default_value = "",
         help = "Characters to pin in their original positions during optimization"
     )]
@@ -71,6 +77,7 @@ struct RunOptions {
     shuffle: bool,
     #[arg(
         long,
+        short,
         value_enum,
         default_value_t = Algorithm::HillClimb,
         help = "Optimization algorithm to use"
@@ -105,10 +112,11 @@ impl From<RunOptions> for optimizer::RunOptions {
 
 #[derive(Parser)]
 struct CommonConfig {
-    #[arg(long)]
+    #[arg(long, short)]
     config: String,
     #[arg(
         long,
+        short,
         default_value = "qwerty",
         value_parser = CommonConfig::parse_layout_string,
         help = "Layout preset or custom layout string"
