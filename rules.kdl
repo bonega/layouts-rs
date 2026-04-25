@@ -15,8 +15,8 @@ metrics {
   bigram_lateral_stretches on bigram(LateralStretch)
     group by "finger" as "FingerKind";
   bigram_scissors on bigram(Scissor)
-    where `
-      units > 1 || units == 1 && ![
+    where `{
+      units > 1 || (units == 1 && ![
           (FingerKind::Index, FingerKind::Middle),
           (FingerKind::Index, FingerKind::Ring),
           (FingerKind::Middle, FingerKind::Ring),
@@ -25,8 +25,8 @@ metrics {
           (FingerKind::Pinky, FingerKind::Ring),
           (FingerKind::Pinky, FingerKind::Middle),
           (FingerKind::Pinky, FingerKind::Index),
-      ].contains(&(lower_finger, upper_finger))
-    `
+      ].contains(&(lower_finger, upper_finger)))
+    }`
     group by "units" as "u8";
   bigram_others on bigram(Other);
   trigram_skips_same_hand on trigram(SameFingerSkip)
@@ -36,8 +36,8 @@ metrics {
     where "!same_hand"
     group by "units" as "u8";
   trigram_scissors_same_hand on trigram(Scissor)
-    where `
-      same_hand && (units > 1 || units == 1 && ![
+    where `{
+      !same_hand || (units > 1 || (units == 1 && ![
           (FingerKind::Index, FingerKind::Middle),
           (FingerKind::Index, FingerKind::Ring),
           (FingerKind::Middle, FingerKind::Ring),
@@ -46,12 +46,12 @@ metrics {
           (FingerKind::Pinky, FingerKind::Ring),
           (FingerKind::Pinky, FingerKind::Middle),
           (FingerKind::Pinky, FingerKind::Index),
-      ].contains(&(lower_finger, upper_finger)))
-    `
+      ].contains(&(lower_finger, upper_finger ))))
+    }`
     group by "units" as "u8";
   trigram_scissors_alternation on trigram(Scissor)
-    where `
-      !same_hand && (units > 1 || units == 1 && ![
+    where `{
+      same_hand || !(units > 1 || (units == 1 && ![
           (FingerKind::Index, FingerKind::Middle),
           (FingerKind::Index, FingerKind::Ring),
           (FingerKind::Middle, FingerKind::Ring),
@@ -59,9 +59,9 @@ metrics {
           (FingerKind::Ring, FingerKind::Index),
           (FingerKind::Pinky, FingerKind::Ring),
           (FingerKind::Pinky, FingerKind::Middle),
-          (FingerKind::Pinky, FingerKind::Index),
-      ].contains(&(lower_finger, upper_finger)))
-    `
+          (FingerKind::Pinky, FingerKind::Index ),
+      ].contains(&(lower_finger, upper_finger ))))
+    }`
     group by "units" as "u8";
   trigram_lateral_stretches_same_hand on trigram(LateralStretch)
     where "same_hand"
