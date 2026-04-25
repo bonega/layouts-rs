@@ -67,7 +67,7 @@ bigram_skips = {
 bigram_scissors = {
   value = { 1 = 0.0, 2 = 0.0 },
   weight = { 1 = 1.0, 2 = 1.0 },
-  scale = { 1 = 1.61535, 2 = 0.15174 }
+  scale = { 1 = 0.92124, 2 = 1.158 }
 }
 bigram_lateral_stretches = {
   value = { pinky = 0.0, ring = 0.0, index = 0.0 },
@@ -87,22 +87,22 @@ trigram_skips_alternation = {
 trigram_scissors_same_hand = {
   value = { 1 = 0.0, 2 = 0.0 },
   weight = { 1 = 1.0, 2 = 1.0 },
-  scale = { 1 = 0.36029, 2 = 0.0642 }
+  scale = { 1 = 0.20181, 2 = 0.161 }
 }
 trigram_scissors_alternation = {
   value = { 1 = 0.0, 2 = 0.0 },
   weight = { 1 = 1.0, 2 = 1.0 },
-  scale = { 1 = 1.07231, 2 = 0.21589 }
+  scale = { 1 = 0.76523, 2 = 0.48938 }
 }
 trigram_lateral_stretches_same_hand = {
-  value = { index = 0.0, pinky = 0.0, ring = 0.0 },
-  weight = { index = 1.0, pinky = 1.0, ring = 1.0 },
-  scale = { index = 0.16829, pinky = 0.12323, ring = 0.10838 }
+  value = { pinky = 0.0, ring = 0.0, index = 0.0 },
+  weight = { pinky = 1.0, ring = 1.0, index = 1.0 },
+  scale = { pinky = 0.12323, ring = 0.10838, index = 0.16829 }
 }
 trigram_lateral_stretches_alternation = {
-  value = { index = 0.0, pinky = 0.0, ring = 0.0 },
-  weight = { index = 1.0, pinky = 1.0, ring = 1.0 },
-  scale = { index = 0.57239, pinky = 0.46957, ring = 0.50452 }
+  value = { pinky = 0.0, ring = 0.0, index = 0.0 },
+  weight = { pinky = 1.0, ring = 1.0, index = 1.0 },
+  scale = { pinky = 0.46957, ring = 0.50452, index = 0.57239 }
 }
 trigram_redirects = {
   value = { strong = 0.0, weak = 0.0 },
@@ -112,4 +112,3 @@ trigram_redirects = {
 trigram_roll_ratio = { value = 100.0, weight = 1.0, scale = 24.01639 }
 trigram_roll_ratio_bigrams = { value = 100.0, weight = 1.0, scale = 12.03764 }
 trigram_alternations = { value = 25.0, weight = 1.0, scale = 3.47812 }
-
