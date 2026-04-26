@@ -17,6 +17,6 @@ pub struct OptimizationConfig {
 impl Config {
     pub fn load(path: &Path) -> anyhow::Result<Self> {
         let content = fs::read_to_string(path)?;
-        Ok(toml::from_str(&content)?)
+        Ok(serde_yaml::from_str(&content)?)
     }
 }

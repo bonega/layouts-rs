@@ -135,9 +135,9 @@ struct CommonConfig {
 
 impl CommonConfig {
     fn parse_layout_string(name: &str) -> Result<String, String> {
-        let content = include_str!("../presets.toml");
+        let content = include_str!("../presets.yaml");
         let presets: HashMap<String, String> =
-            toml::from_str(content).expect("Failed to parse presets.toml");
+            serde_yaml::from_str(content).expect("Failed to parse presets.yaml");
 
         Ok(presets
             .get(name)

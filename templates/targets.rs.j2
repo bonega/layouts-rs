@@ -28,10 +28,8 @@ pub struct SingleTarget {
 pub struct MapTarget<K: Hash + Eq> {
     pub weight: IndexMap<K, f64>,
     pub scale: IndexMap<K, f64>,
-    #[serde(alias = "value")]
-    pub values: IndexMap<K, f64>,
+    pub value: IndexMap<K, f64>,
 }
-
 
 impl SingleTarget {
     pub fn score(&self, current_value: f64) -> f64 {
@@ -44,7 +42,7 @@ impl<K: Hash + Eq> MapTarget<K> {
         current_values
             .iter()
             .map(|(k, &v)| {
-                let target = self.values.get(k).copied();
+                let target = self.value.get(k).copied();
                 let Some(target) = target else {
                     return 0.0;
                 };
@@ -80,7 +78,7 @@ pub fn default_targets() -> Targets {
         {% if target.ty == dsl::Ty::Scalar %}
         {{ target.name }}: SingleTarget { value: 0.0, weight: 0.0, scale: 1.0 },
         {%- else %}
-        {{ target.name }}: MapTarget { weight: IndexMap::new(), scale: IndexMap::new(), values: IndexMap::new() },
+        {{ target.name }}: MapTarget { weight: IndexMap::new(), scale: IndexMap::new(), value: IndexMap::new() },
         {%- endif %}
         {%- endfor %}
     }
