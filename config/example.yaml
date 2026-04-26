@@ -42,15 +42,17 @@ optimization:
     effort:
       value: 130.0
       weight: 1.0
-      scale: 21.24262
+      scale: 21.24339
+
     pinky_off_home:
       value: 0.0
       weight: 1.0
-      scale: 1.62879
+      scale: 1.62882
+
     left_hand_usage:
-      value: 0.0
+      value: 48.57659
       weight: 1.0
-      scale: 3.47625
+      scale: 3.47652
 
     finger_usage:
       value: {}
@@ -66,15 +68,15 @@ optimization:
         right_index: 1.0
         right_thumb: 1.0
       scale:
-        left_pinky: 1.93042
-        left_ring: 1.58781
-        left_middle: 3.08803
-        left_index: 2.42221
-        left_thumb: 3.98635
-        right_pinky: 2.47639
-        right_ring: 2.60017
-        right_middle: 3.20679
-        right_index: 3.13865
+        left_pinky: 1.93048
+        left_ring: 1.58789
+        left_middle: 3.08812
+        left_index: 2.42232
+        left_thumb: 3.98745
+        right_pinky: 2.47646
+        right_ring: 2.60028
+        right_middle: 3.20687
+        right_index: 3.13870
         right_thumb: 1.52169
 
     row_usage:
@@ -85,13 +87,25 @@ optimization:
         2: 1.0
         3: 1.0
       scale:
-        0: 6.68443
-        1: 6.11374
-        2: 4.64896
-        3: 4.0908
+        0: 6.68468
+        1: 6.11411
+        2: 4.64904
+        3: 4.09205
 
     column_usage:
-      value: {}
+      value:
+        0: 0.02882
+        1: 7.78712
+        2: 10.48119
+        3: 13.22736
+        4: 13.88989
+        5: 3.16222
+        6: 2.84838
+        7: 10.92448
+        8: 16.12147
+        9: 12.60458
+        10: 8.53187
+        11: 0.39263
       weight:
         0: 1.0
         1: 1.0
@@ -107,17 +121,17 @@ optimization:
         11: 1.0
       scale:
         0: 0.18226
-        1: 1.97201
-        2: 1.58781
-        3: 3.08803
-        4: 4.18414
-        5: 2.22826
-        6: 2.02175
-        7: 3.85509
-        8: 3.20679
-        9: 2.60017
-        10: 2.59885
-        11: 0.3441
+        1: 1.97208
+        2: 1.58789
+        3: 3.08812
+        4: 4.18511
+        5: 2.22832
+        6: 2.02181
+        7: 3.85511
+        8: 3.20687
+        9: 2.60028
+        10: 2.59892
+        11: 0.34410
 
     bigram_skips:
       value:
@@ -127,8 +141,8 @@ optimization:
         1: 1.0
         2: 1.0
       scale:
-        1: 0.58565
-        2: 0.26153
+        1: 0.58567
+        2: 0.26154
 
     bigram_scissors:
       value:
@@ -138,8 +152,8 @@ optimization:
         1: 1.0
         2: 1.0
       scale:
-        1: 0.92124
-        2: 1.158
+        1: 0.92127
+        2: 1.15803
 
     bigram_lateral_stretches:
       value:
@@ -151,9 +165,9 @@ optimization:
         ring: 1.0
         index: 1.0
       scale:
-        pinky: 0.64121
-        ring: 0.8588
-        index: 0.88234
+        pinky: 0.64122
+        ring: 0.85882
+        index: 0.88237
 
     trigram_skips_same_hand:
       value:
@@ -163,8 +177,8 @@ optimization:
         1: 1.0
         2: 1.0
       scale:
-        1: 0.48434
-        2: 0.12965
+        1: 0.48435
+        2: 0.12966
 
     trigram_skips_alternation:
       value:
@@ -174,8 +188,8 @@ optimization:
         1: 1.0
         2: 1.0
       scale:
-        1: 0.59905
-        2: 0.19881
+        1: 0.59907
+        2: 0.19882
 
     trigram_scissors_same_hand:
       value:
@@ -185,8 +199,8 @@ optimization:
         1: 1.0
         2: 1.0
       scale:
-        1: 0.20181
-        2: 0.161
+        1: 1.84780
+        2: 0.54506
 
     trigram_scissors_alternation:
       value:
@@ -196,8 +210,8 @@ optimization:
         1: 1.0
         2: 1.0
       scale:
-        1: 0.76523
-        2: 0.48938
+        1: 1.19365
+        2: 0.16100
 
     trigram_lateral_stretches_same_hand:
       value:
@@ -210,7 +224,7 @@ optimization:
         index: 1.0
       scale:
         pinky: 0.12323
-        ring: 0.10838
+        ring: 0.10839
         index: 0.16829
 
     trigram_lateral_stretches_alternation:
@@ -223,9 +237,9 @@ optimization:
         ring: 1.0
         index: 1.0
       scale:
-        pinky: 0.46957
+        pinky: 0.46958
         ring: 0.50452
-        index: 0.57239
+        index: 0.57241
 
     trigram_redirects:
       value:
@@ -235,18 +249,20 @@ optimization:
         strong: 1.0
         weak: 1.0
       scale:
-        strong: 1.477
+        strong: 1.47704
         weak: 0.19694
 
     trigram_roll_ratio:
       value: 100.0
       weight: 1.0
-      scale: 24.01639
+      scale: 24.02156
+
     trigram_roll_ratio_bigrams:
       value: 100.0
       weight: 1.0
-      scale: 12.03764
+      scale: 12.03798
+
     trigram_alternations:
       value: 25.0
       weight: 1.0
-      scale: 3.47812
+      scale: 3.47823
