@@ -6,7 +6,7 @@ use std::process::Command;
 use anyhow::{Context, Result};
 use askama::Template;
 
-use dsl::{Rules, parse};
+use dsl::{Rules, Target, parse};
 
 #[derive(Debug, Template)]
 #[template(path = "metrics.rs.j2", escape = "none")]
@@ -19,6 +19,15 @@ struct MetricsTemplate {
 struct StatsTemplate {
     stats: dsl::Stats,
     metrics: Vec<dsl::Metric>,
+    targets: Vec<dsl::Target>,
+}
+
+impl StatsTemplate {
+    fn find_target(&self, section_name: &str, stat_name: &str) -> Option<&Target> {
+        self.targets
+            .iter()
+            .find(|t| t.source == format!("{}.{}", section_name, stat_name))
+    }
 }
 
 #[derive(Debug, Template)]
@@ -53,6 +62,7 @@ fn main() -> Result<()> {
         StatsTemplate {
             stats: rules.stats.clone(),
             metrics: rules.metrics.clone(),
+            targets: rules.targets.clone(),
         },
     )?;
 
@@ -101,6 +111,14 @@ mod filters {
         Ok(match ty {
             Ty::Scalar => "f64".to_string(),
             Ty::Map(kind) => format!("IndexMap<{}, f64>", kind.0),
+        })
+    }
+
+    #[askama::filter_fn]
+    pub fn print_map_key_ty(ty: &Ty, _: &dyn askama::Values) -> askama::Result<String> {
+        Ok(match ty {
+            Ty::Scalar => "f64".to_string(),
+            Ty::Map(kind) => kind.0.clone(),
         })
     }
 

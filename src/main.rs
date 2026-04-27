@@ -10,7 +10,7 @@ use layouts_rs::{
     layout::Layout,
     metrics::Metrics,
     optimizer::{self, HillClimbOptimizer, Optimizer, SimulatedAnnealingOptimizer},
-    stats::Stats,
+    stats::{Stats, StatsDiff},
 };
 use rand::{Rng, rng};
 
@@ -199,6 +199,11 @@ impl Command {
 
                 let corpus = args.common.corpus();
                 let analyzer = Analyzer::new(corpus);
+
+                let mut metrics_before = Metrics::default();
+                analyzer.analyze(&layout, &mut metrics_before);
+                let stats_before = Stats::from(metrics_before);
+
                 let optimizer = Self::select_optimizer(
                     analyzer.clone(),
                     &args.run_options,
@@ -206,14 +211,17 @@ impl Command {
                 );
                 let optimized_layout = optimizer.optimize(&layout, args.run_options.clone().into());
 
-                let mut metrics = Metrics::default();
-                analyzer.analyze(&optimized_layout, &mut metrics);
-                let stats = Stats::from(metrics);
-                let score = stats.score(&config.optimization.targets);
+                let mut metrics_after = Metrics::default();
+                analyzer.analyze(&optimized_layout, &mut metrics_after);
+                let stats_after = Stats::from(metrics_after);
+
+                let score = stats_after.score(&config.optimization.targets);
+
+                let diff = StatsDiff::diff(stats_after, stats_before, config.optimization.targets);
 
                 info!("Optimized Layout:\n{optimized_layout}");
                 info!("Optimization score: {score:.4}");
-                info!("{stats}");
+                info!("{diff}");
             }
         }
         Ok(())
