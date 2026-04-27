@@ -40,35 +40,22 @@ optimization:
     key_switches: 2
     stall_accepted: 5000
 
+  # If the field weight is not set, the metric wont be optimized
   targets:
     effort:
       value: 130.0
-      weight: 1.0
       scale: 21.24339
 
     pinky_off_home:
       value: 0.0
-      weight: 1.0
       scale: 1.62882
 
     left_hand_usage:
       value: 50.0
-      weight: 1.0
       scale: 3.47652
 
     finger_usage:
-      value: {}
-      weight:
-        left_pinky: 1.0
-        left_ring: 1.0
-        left_middle: 1.0
-        left_index: 1.0
-        left_thumb: 1.0
-        right_pinky: 1.0
-        right_ring: 1.0
-        right_middle: 1.0
-        right_index: 1.0
-        right_thumb: 1.0
+      value:
       scale:
         left_pinky: 1.93048
         left_ring: 1.58789
@@ -82,12 +69,7 @@ optimization:
         right_thumb: 1.52169
 
     row_usage:
-      value: {}
-      weight:
-        0: 1.0
-        1: 1.0
-        2: 1.0
-        3: 1.0
+      value:
       scale:
         0: 6.68468
         1: 6.11411
@@ -95,20 +77,7 @@ optimization:
         3: 4.09205
 
     column_usage:
-      value: {}
-      weight:
-        0: 1.0
-        1: 1.0
-        2: 1.0
-        3: 1.0
-        4: 1.0
-        5: 1.0
-        6: 1.0
-        7: 1.0
-        8: 1.0
-        9: 1.0
-        10: 1.0
-        11: 1.0
+      value:
       scale:
         0: 0.18226
         1: 1.97208
@@ -127,9 +96,6 @@ optimization:
       value:
         1: 0.0
         2: 0.0
-      weight:
-        1: 1.0
-        2: 1.0
       scale:
         1: 0.58567
         2: 0.26154
@@ -138,9 +104,6 @@ optimization:
       value:
         1: 0.0
         2: 0.0
-      weight:
-        1: 1.0
-        2: 1.0
       scale:
         1: 0.92127
         2: 1.15803
@@ -150,10 +113,6 @@ optimization:
         pinky: 0.0
         ring: 0.0
         index: 0.0
-      weight:
-        pinky: 1.0
-        ring: 1.0
-        index: 1.0
       scale:
         pinky: 0.64122
         ring: 0.85882
@@ -163,9 +122,6 @@ optimization:
       value:
         1: 0.0
         2: 0.0
-      weight:
-        1: 1.0
-        2: 1.0
       scale:
         1: 0.48435
         2: 0.12966
@@ -174,9 +130,6 @@ optimization:
       value:
         1: 0.0
         2: 0.0
-      weight:
-        1: 1.0
-        2: 1.0
       scale:
         1: 0.59907
         2: 0.19882
@@ -185,9 +138,6 @@ optimization:
       value:
         1: 0.0
         2: 0.0
-      weight:
-        1: 1.0
-        2: 1.0
       scale:
         1: 1.84780
         2: 0.54506
@@ -196,9 +146,6 @@ optimization:
       value:
         1: 0.0
         2: 0.0
-      weight:
-        1: 1.0
-        2: 1.0
       scale:
         1: 1.19365
         2: 0.16100
@@ -208,10 +155,6 @@ optimization:
         pinky: 0.0
         ring: 0.0
         index: 0.0
-      weight:
-        pinky: 1.0
-        ring: 1.0
-        index: 1.0
       scale:
         pinky: 0.12323
         ring: 0.10839
@@ -222,10 +165,6 @@ optimization:
         pinky: 0.0
         ring: 0.0
         index: 0.0
-      weight:
-        pinky: 1.0
-        ring: 1.0
-        index: 1.0
       scale:
         pinky: 0.46958
         ring: 0.50452
@@ -235,24 +174,18 @@ optimization:
       value:
         strong: 0.0
         weak: 0.0
-      weight:
-        strong: 1.0
-        weak: 1.0
       scale:
         strong: 1.47704
         weak: 0.19694
 
     trigram_roll_ratio:
       value: 100.0
-      weight: 1.0
       scale: 24.02156
 
     trigram_roll_ratio_bigrams:
       value: 100.0
-      weight: 1.0
       scale: 12.03798
 
     trigram_alternations:
       value: 25.0
-      weight: 1.0
       scale: 3.47823
