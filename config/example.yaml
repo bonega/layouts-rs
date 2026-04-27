@@ -31,6 +31,8 @@ layout:
     9: [1, 9]
     10: [1, 10]
 
+# The scales are calculated against all cyanophage layouts, using english and italian corpuses.
+# For reference, see branch "feat/generate-optimization-targets"
 optimization:
   simulated_annealing:
     init_temp: 150.0

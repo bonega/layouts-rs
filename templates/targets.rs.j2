@@ -20,15 +20,17 @@ pub struct Targets {
 #[derive(Deserialize, Clone)]
 pub struct SingleTarget {
     pub value: f64,
+    #[serde(default)]
     pub weight: f64,
     pub scale: f64,
 }
 
 #[derive(Deserialize, Clone)]
 pub struct MapTarget<K: Hash + Eq> {
+    pub value: IndexMap<K, f64>,
+    #[serde(default = "IndexMap::new")]
     pub weight: IndexMap<K, f64>,
     pub scale: IndexMap<K, f64>,
-    pub value: IndexMap<K, f64>,
 }
 
 impl SingleTarget {
