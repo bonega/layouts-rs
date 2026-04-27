@@ -178,11 +178,11 @@ mod layout_finger {
             let value = FingerRepr::deserialize(deserializer)?;
             match value {
                 FingerRepr::Enum(e) => Ok(e.into()),
-                FingerRepr::U8(v) => Ok(From::from(Finger::try_from(v).map_err(D::Error::custom)?)),
-                FingerRepr::String(v) => Ok(From::from(
-                    Finger::try_from(v.parse::<u8>().map_err(D::Error::custom)?)
-                        .map_err(D::Error::custom)?,
-                )),
+                FingerRepr::U8(v) => Ok(Finger::try_from(v).map_err(D::Error::custom)?),
+                FingerRepr::String(v) => {
+                    Ok(Finger::try_from(v.parse::<u8>().map_err(D::Error::custom)?)
+                        .map_err(D::Error::custom)?)
+                }
             }
         }
     }

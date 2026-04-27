@@ -199,7 +199,7 @@ impl Layout {
                 );
                 let finger_home = config
                     .finger_home_positions
-                    .get(&finger)
+                    .get(finger)
                     .is_some_and(|hp| hp.r == r && hp.c == c);
                 let key = Key::new(
                     ch,
