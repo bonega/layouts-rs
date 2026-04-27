@@ -30,14 +30,14 @@ metrics {
     group by "units" as "u8";
   bigram_others on bigram(Other);
   trigram_skips_same_hand on trigram(SameFingerSkip)
-    where "same_hand"
+    where "handedness == Handedness::Same"
     group by "units" as "u8";
   trigram_skips_alternation on trigram(SameFingerSkip)
-    where "!same_hand"
+    where "handedness == Handedness::Alternate"
     group by "units" as "u8";
   trigram_scissors_same_hand on trigram(Scissor)
     where `
-      !same_hand || (units > 1 || (units == 1 && ![
+      handedness == Handedness::Alternate || (units > 1 || (units == 1 && ![
           (FingerKind::Index, FingerKind::Middle),
           (FingerKind::Index, FingerKind::Ring),
           (FingerKind::Middle, FingerKind::Ring),
@@ -51,7 +51,7 @@ metrics {
     group by "units" as "u8";
   trigram_scissors_alternation on trigram(Scissor)
     where `
-      same_hand || !(units > 1 || (units == 1 && ![
+      handedness == Handedness::Same || !(units > 1 || (units == 1 && ![
           (FingerKind::Index, FingerKind::Middle),
           (FingerKind::Index, FingerKind::Ring),
           (FingerKind::Middle, FingerKind::Ring),
@@ -64,19 +64,19 @@ metrics {
     `
     group by "units" as "u8";
   trigram_lateral_stretches_same_hand on trigram(LateralStretch)
-    where "same_hand"
+    where "handedness == Handedness::Same"
     group by "finger" as "FingerKind";
   trigram_lateral_stretches_alternation on trigram(LateralStretch)
-    where "!same_hand"
+    where "handedness == Handedness::Alternate"
     group by "finger" as "FingerKind";
   trigram_redirects on trigram(Redirect)
-    group by `if weak { "weak".to_string() } else { "strong".to_string() }` as "String";
+    group by `strength` as "RedirectStrength";
   trigram_roll on trigram(Roll)
-    where "triple"
-    group by `if inward { "in".to_string() } else { "out".to_string() }` as "String";
+    where `length == 3`
+    group by `direction` as "RollDirection";
   trigram_roll_bigrams on trigram(Roll)
-    where "!triple"
-    group by `if inward { "in".to_string() } else { "out".to_string() }` as "String";
+    where `length == 2`
+    group by `direction` as "RollDirection";
   trigram_alternations on trigram(Alternation);
   trigram_others on trigram(Other);
 }
@@ -84,10 +84,10 @@ metrics {
 stats {
   let left_hand_usage = sum(finger_usage) where "group.hand == Hand::Left";
   let right_hand_usage = sum(finger_usage) where "group.hand == Hand::Right";
-  let roll_in = sum(trigram_roll) where `group == "in"`;
-  let roll_out = sum(trigram_roll) where `group == "out"`;
-  let roll_in_bigrams = sum(trigram_roll_bigrams) where `group == "in"`;
-  let roll_out_bigrams = sum(trigram_roll_bigrams) where `group == "out"`;
+  let roll_in = sum(trigram_roll) where `*group == RollDirection::In`;
+  let roll_out = sum(trigram_roll) where `*group == RollDirection::Out`;
+  let roll_in_bigrams = sum(trigram_roll_bigrams) where `*group == RollDirection::In`;
+  let roll_out_bigrams = sum(trigram_roll_bigrams) where `*group == RollDirection::Out`;
   let total_hand_usage = left_hand_usage + right_hand_usage;
   let total_row_usage = sum(row_usage);
   let total_column_usage = sum(column_usage);
@@ -118,7 +118,7 @@ stats {
     lateral_stretches_same_hand = normalize(trigram_lateral_stretches_same_hand, total_chars);
     lateral_stretches_alternation = normalize(trigram_lateral_stretches_alternation, total_chars);
     redirects = normalize(trigram_redirects, total_chars);
-    rollin = normalize(trigram_roll, total_chars);
+    roll = normalize(trigram_roll, total_chars);
     roll_bigrams = normalize(trigram_roll_bigrams, total_chars);
     roll_ratio = ratio(roll_in, roll_out);
     roll_ratio_bigrams = ratio(roll_in_bigrams, roll_out_bigrams);

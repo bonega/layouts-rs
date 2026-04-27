@@ -303,3 +303,75 @@ mod layout_config {
         Matrix::new(raw_data?).map_err(Error::custom)
     }
 }
+
+mod ngrams_handedness {
+    use crate::ngrams::Handedness;
+
+    use super::*;
+
+    #[derive(Debug, Deserialize, strum::Display)]
+    #[mapping::map_enum(Handedness)]
+    #[serde(rename_all = "snake_case")]
+    #[strum(serialize_all = "snake_case")]
+    pub enum HandednessRepr {
+        Same,
+        Alternate,
+    }
+
+    impl_deserialize_with_from!(HandednessRepr, Handedness);
+
+    impl fmt::Display for Handedness {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            let strength: HandednessRepr = (*self).into();
+            strength.fmt(f)
+        }
+    }
+}
+
+mod ngrams_redirect_strength {
+    use crate::ngrams::RedirectStrength;
+
+    use super::*;
+
+    #[derive(Debug, Deserialize, strum::Display)]
+    #[mapping::map_enum(RedirectStrength)]
+    #[serde(rename_all = "snake_case")]
+    #[strum(serialize_all = "snake_case")]
+    pub enum RedirectStrengthRepr {
+        Weak,
+        Strong,
+    }
+
+    impl_deserialize_with_from!(RedirectStrengthRepr, RedirectStrength);
+
+    impl fmt::Display for RedirectStrength {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            let strength: RedirectStrengthRepr = (*self).into();
+            strength.fmt(f)
+        }
+    }
+}
+
+mod ngrams_roll_direction {
+    use crate::ngrams::RollDirection;
+
+    use super::*;
+
+    #[derive(Debug, Deserialize, strum::Display)]
+    #[mapping::map_enum(RollDirection)]
+    #[serde(rename_all = "snake_case")]
+    #[strum(serialize_all = "snake_case")]
+    pub enum RollDirectionRepr {
+        In,
+        Out,
+    }
+
+    impl_deserialize_with_from!(RollDirectionRepr, RollDirection);
+
+    impl fmt::Display for RollDirection {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            let direction: RollDirectionRepr = (*self).into();
+            direction.fmt(f)
+        }
+    }
+}

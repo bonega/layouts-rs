@@ -94,12 +94,12 @@ impl MetricsCollector for Metrics {
                     {% call collect_metric(metric) %}{% endcall %}
                     {% endif %}{% endfor %}
                     match kind {
-                        TrigramKind::SameFingerSkip { units, same_hand } => { {{ collect_trigram_metrics_kind("SameFingerSkip") }} }
-                        TrigramKind::Roll { triple, inward } => { {{ collect_trigram_metrics_kind("Roll") }} }
-                        TrigramKind::Redirect { weak } => { {{ collect_trigram_metrics_kind("Redirect") }} }
+                        TrigramKind::SameFingerSkip { units, handedness } => { {{ collect_trigram_metrics_kind("SameFingerSkip") }} }
+                        TrigramKind::Roll { length, direction } => { {{ collect_trigram_metrics_kind("Roll") }} }
+                        TrigramKind::Redirect { strength } => { {{ collect_trigram_metrics_kind("Redirect") }} }
                         TrigramKind::Alternation => { {{ collect_trigram_metrics_kind("Alternation") }} }
-                        TrigramKind::LateralStretch { same_hand, finger, units } => { {{ collect_trigram_metrics_kind("LateralStretch") }} }
-                        TrigramKind::Scissor { same_hand, units, lower_finger, upper_finger, adiacent } => { {{ collect_trigram_metrics_kind("Scissor") }} }
+                        TrigramKind::LateralStretch { handedness, finger, units } => { {{ collect_trigram_metrics_kind("LateralStretch") }} }
+                        TrigramKind::Scissor { handedness, units, lower_finger, upper_finger, adiacent } => { {{ collect_trigram_metrics_kind("Scissor") }} }
                         TrigramKind::Other => { {{ collect_trigram_metrics_kind("Other") }} }
                     }
                 }
