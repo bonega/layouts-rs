@@ -14,7 +14,7 @@ use crate::{
     matrix::Pos,
     metrics::Metrics,
     stats::Stats,
-    swaps::{SwapMove, SwapMoveBuilder, SwapMoveStrategy},
+    swaps::{SwapMoveBuilder, SwapMoveStrategy, SwapMoves, SwapSampler},
     targets::Targets,
 };
 
@@ -33,7 +33,7 @@ struct OptimizableLayout {
     initial_layout: Layout,
     layout: Layout,
     max_swapped: Option<usize>,
-    swap_moves: Arc<Vec<SwapMove>>,
+    swap_moves: Arc<SwapMoves>,
     movable_positions: Arc<Vec<Pos>>,
 }
 
@@ -81,8 +81,9 @@ impl OptimizableLayout {
         let initial_layout = &self.initial_layout;
         let current_layout = &self.layout;
 
-        let (score, best_swap) = self
-            .swap_moves
+        let moves = self.swap_moves.moves();
+
+        let (score, best_swap) = moves
             .par_iter()
             .filter_map(|swap_move| {
                 let mut candidate_layout = current_layout.clone();
@@ -141,7 +142,12 @@ impl OptimizableLayout {
         }
     }
 
-    pub fn perturb<RNG: Rng + ?Sized>(&mut self, rng: &mut RNG, mut n: usize) {
+    pub fn perturb<RNG: Rng + ?Sized>(
+        &mut self,
+        rng: &mut RNG,
+        mut n: usize,
+        weights: &[(SwapMoveStrategy, usize)],
+    ) {
         let swaps_number = self.swap_moves.len();
         n = n.min(swaps_number);
 
@@ -151,7 +157,7 @@ impl OptimizableLayout {
                 break;
             }
 
-            let swap = &self.swap_moves[rng.next_u64() as usize % swaps_number];
+            let swap = self.swap_moves.sample(rng, weights);
             swap.apply(&mut self.layout);
 
             if let Some(max) = self.max_swapped
@@ -317,7 +323,7 @@ impl Optimizer for SimulatedAnnealingOptimizer {
             layout.clone(),
             opts.pinned,
             opts.max_swapped,
-            SwapMoveBuilder::new(&[SwapMoveStrategy::Single]),
+            SwapMoveBuilder::full(),
         );
 
         if opts.shuffle {
@@ -337,7 +343,11 @@ impl Optimizer for SimulatedAnnealingOptimizer {
             }
 
             let mut candidate = current.clone();
-            candidate.perturb(&mut rng, self.key_switches);
+            candidate.perturb(
+                &mut rng,
+                self.key_switches,
+                &[(SwapMoveStrategy::Single, 1)],
+            );
 
             let candidate_score = self.score(&candidate.layout);
             let delta = candidate_score - current_score;
@@ -497,6 +507,12 @@ mod optimizable_layout_tests {
 
     use super::*;
     use crate::layout::Config;
+
+    const STRATEGIES: &[(SwapMoveStrategy, usize); 3] = &[
+        (SwapMoveStrategy::Single, 20),
+        (SwapMoveStrategy::Column, 1),
+        (SwapMoveStrategy::Row, 1),
+    ];
 
     fn make_layout() -> Layout {
         Layout::new(
@@ -665,7 +681,7 @@ mod optimizable_layout_tests {
             OptimizableLayout::new(make_layout(), [].into(), None, SwapMoveBuilder::full());
         let before: Vec<char> = optimizable.layout().keys().map(|k| k.ch).collect();
 
-        optimizable.perturb(&mut get_rng(), 10);
+        optimizable.perturb(&mut get_rng(), 10, STRATEGIES);
 
         let after: Vec<char> = optimizable.layout().keys().map(|k| k.ch).collect();
         check!(before != after);
@@ -681,7 +697,7 @@ mod optimizable_layout_tests {
         );
         let before: Vec<char> = optimizable.layout().keys().map(|k| k.ch).collect();
 
-        optimizable.perturb(&mut get_rng(), 10);
+        optimizable.perturb(&mut get_rng(), 10, STRATEGIES);
 
         let after: Vec<char> = optimizable.layout().keys().map(|k| k.ch).collect();
         check!(before == after);
@@ -692,7 +708,7 @@ mod optimizable_layout_tests {
         let mut optimizable =
             OptimizableLayout::new(make_layout(), [].into(), Some(0), SwapMoveBuilder::full());
 
-        optimizable.perturb(&mut get_rng(), 10);
+        optimizable.perturb(&mut get_rng(), 10, STRATEGIES);
 
         check!(optimizable.diff() == 0);
     }
@@ -702,7 +718,7 @@ mod optimizable_layout_tests {
         let mut optimizable =
             OptimizableLayout::new(make_layout(), [].into(), Some(4), SwapMoveBuilder::full());
 
-        optimizable.perturb(&mut get_rng(), 100);
+        optimizable.perturb(&mut get_rng(), 100, STRATEGIES);
 
         check!(optimizable.diff() > 0);
         check!(optimizable.diff() <= 4);
