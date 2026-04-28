@@ -44,6 +44,13 @@ struct OptimizeArgs {
     common: CommonConfig,
     #[command(flatten)]
     run_options: RunOptions,
+    #[arg(
+        long,
+        short,
+        value_parser = CommonConfig::parse_layout_string,
+        help = "Reference layout preset or custom layout string to compare against (defaults to initial layout)"
+    )]
+    reference_layout: Option<String>,
 }
 
 #[derive(Parser, Clone)]
@@ -200,8 +207,14 @@ impl Command {
                 let corpus = args.common.corpus();
                 let analyzer = Analyzer::new(corpus);
 
+                let reference_layout = match &args.reference_layout {
+                    Some(layout_str) => Layout::new(layout_str, &config.layout)
+                        .map_err(|e| anyhow::anyhow!("Failed to load reference layout: {e}"))?,
+                    _ => layout.clone(),
+                };
+
                 let mut metrics_before = Metrics::default();
-                analyzer.analyze(&layout, &mut metrics_before);
+                analyzer.analyze(&reference_layout, &mut metrics_before);
                 let stats_before = Stats::from(metrics_before);
 
                 let optimizer = Self::select_optimizer(
