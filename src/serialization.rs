@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use serde::{Deserialize, Deserializer, Serialize, de::Error};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error};
 
 macro_rules! impl_deserialize_with_from {
     ($repr:path, $final:path) => {
@@ -9,6 +9,24 @@ macro_rules! impl_deserialize_with_from {
             fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
                 let value = <$repr>::deserialize(deserializer)?;
                 Ok(value.into())
+            }
+        }
+    };
+}
+
+macro_rules! impl_serialize_display {
+    ($repr:path, $typ:path) => {
+        impl Serialize for $typ {
+            fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                let repr: $repr = (*self).into();
+                repr.serialize(serializer)
+            }
+        }
+
+        impl fmt::Display for $typ {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                let repr: $repr = (*self).into();
+                repr.fmt(f)
             }
         }
     };
@@ -123,7 +141,7 @@ mod layout_finger {
         U8(u8),
     }
 
-    #[derive(Debug, Deserialize, Serialize, strum::Display)]
+    #[derive(Debug, Serialize, Deserialize, strum::Display)]
     #[serde(rename_all = "snake_case")]
     #[strum(serialize_all = "snake_case")]
     enum EnumFinger {
@@ -187,12 +205,7 @@ mod layout_finger {
         }
     }
 
-    impl fmt::Display for Finger {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            let enum_finger: EnumFinger = (*self).into();
-            enum_finger.fmt(f)
-        }
-    }
+    impl_serialize_display!(EnumFinger, Finger);
 
     impl TryFrom<u8> for Finger {
         type Error = String;
@@ -222,7 +235,7 @@ mod layout_finger_kind {
 
     use super::*;
 
-    #[derive(Debug, Deserialize, strum::Display)]
+    #[derive(Debug, Deserialize, Serialize, strum::Display)]
     #[mapping::map_enum(FingerKind)]
     #[serde(rename_all = "snake_case")]
     #[strum(serialize_all = "snake_case")]
@@ -235,13 +248,7 @@ mod layout_finger_kind {
     }
 
     impl_deserialize_with_from!(FingerKindRepr, FingerKind);
-
-    impl fmt::Display for FingerKind {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            let enum_finger_kind: FingerKindRepr = (*self).into();
-            enum_finger_kind.fmt(f)
-        }
-    }
+    impl_serialize_display!(FingerKindRepr, FingerKind);
 }
 
 mod layout_key_size {
@@ -309,7 +316,7 @@ mod ngrams_handedness {
 
     use super::*;
 
-    #[derive(Debug, Deserialize, strum::Display)]
+    #[derive(Debug, Serialize, Deserialize, strum::Display)]
     #[mapping::map_enum(Handedness)]
     #[serde(rename_all = "snake_case")]
     #[strum(serialize_all = "snake_case")]
@@ -319,13 +326,7 @@ mod ngrams_handedness {
     }
 
     impl_deserialize_with_from!(HandednessRepr, Handedness);
-
-    impl fmt::Display for Handedness {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            let strength: HandednessRepr = (*self).into();
-            strength.fmt(f)
-        }
-    }
+    impl_serialize_display!(HandednessRepr, Handedness);
 }
 
 mod ngrams_redirect_strength {
@@ -333,7 +334,7 @@ mod ngrams_redirect_strength {
 
     use super::*;
 
-    #[derive(Debug, Deserialize, strum::Display)]
+    #[derive(Debug, Deserialize, Serialize, strum::Display)]
     #[mapping::map_enum(RedirectStrength)]
     #[serde(rename_all = "snake_case")]
     #[strum(serialize_all = "snake_case")]
@@ -343,13 +344,7 @@ mod ngrams_redirect_strength {
     }
 
     impl_deserialize_with_from!(RedirectStrengthRepr, RedirectStrength);
-
-    impl fmt::Display for RedirectStrength {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            let strength: RedirectStrengthRepr = (*self).into();
-            strength.fmt(f)
-        }
-    }
+    impl_serialize_display!(RedirectStrengthRepr, RedirectStrength);
 }
 
 mod ngrams_roll_direction {
@@ -357,7 +352,7 @@ mod ngrams_roll_direction {
 
     use super::*;
 
-    #[derive(Debug, Deserialize, strum::Display)]
+    #[derive(Debug, Serialize, Deserialize, strum::Display)]
     #[mapping::map_enum(RollDirection)]
     #[serde(rename_all = "snake_case")]
     #[strum(serialize_all = "snake_case")]
@@ -367,11 +362,5 @@ mod ngrams_roll_direction {
     }
 
     impl_deserialize_with_from!(RollDirectionRepr, RollDirection);
-
-    impl fmt::Display for RollDirection {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            let direction: RollDirectionRepr = (*self).into();
-            direction.fmt(f)
-        }
-    }
+    impl_serialize_display!(RollDirectionRepr, RollDirection);
 }
