@@ -1,6 +1,10 @@
 use std::collections::HashMap;
+use std::str::FromStr;
 
-use serde::{Deserialize, Deserializer, de::Error};
+use serde::{
+    Deserialize, Deserializer,
+    de::{self, Error, IntoDeserializer},
+};
 
 macro_rules! impl_deserialize_with_from {
     ($repr:path, $final:path) => {
@@ -65,6 +69,24 @@ mod matrix_pos {
         String(String),
     }
 
+    impl FromStr for Pos {
+        type Err = String;
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            let trimmed = s.trim().trim_start_matches('[').trim_end_matches(']');
+            let parts: Vec<&str> = trimmed.split(',').map(str::trim).collect();
+            if parts.len() != 2 {
+                return Err(format!("expected '[r, c]', got '{}'", s));
+            }
+            let r = parts[0]
+                .parse::<usize>()
+                .map_err(|_| format!("invalid row value: {}", parts[0]))?;
+            let c = parts[1]
+                .parse::<usize>()
+                .map_err(|_| format!("invalid column value: {}", parts[1]))?;
+            Ok(Self { r, c })
+        }
+    }
+
     impl<'de> Deserialize<'de> for Pos {
         fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
             let raw: PosSource = Deserialize::deserialize(deserializer)?;
@@ -73,16 +95,9 @@ mod matrix_pos {
                     r: array[0],
                     c: array[1],
                 }),
-                PosSource::String(s) => {
-                    let trimmed = s.trim().trim_start_matches('[').trim_end_matches(']');
-                    let parts: Vec<&str> = trimmed.split(',').map(str::trim).collect();
-                    if parts.len() != 2 {
-                        return Err(D::Error::custom(format!("expected '[r, c]', got '{}'", s)));
-                    }
-                    let r = parts[0].parse::<usize>().map_err(D::Error::custom)?;
-                    let c = parts[1].parse::<usize>().map_err(D::Error::custom)?;
-                    Ok(Self { r, c })
-                }
+                PosSource::String(s) => s
+                    .parse::<Pos>()
+                    .map_err(|e| D::Error::custom(format!("invalid position format: {}", e))),
             }
         }
     }
@@ -105,84 +120,57 @@ mod layout_coords {
 }
 
 mod layout_finger {
-    use crate::layout::{Finger, FingerKind, Hand};
-
     use super::*;
+    use crate::layout::{Finger, FingerKind, Hand};
 
     #[derive(Debug, Deserialize)]
     #[serde(untagged)]
     enum FingerSource {
-        Enum(EnumFinger),
-        String(String),
         U8(u8),
+        String(String),
     }
 
     #[derive(Debug, Deserialize)]
     #[serde(rename_all = "snake_case")]
-    enum EnumFinger {
-        LeftPinky,
-        LeftRing,
-        LeftMiddle,
-        LeftIndex,
-        LeftThumb,
-        RightThumb,
-        RightIndex,
-        RightMiddle,
-        RightRing,
-        RightPinky,
+    #[mapping::map_enum_to(FingerKind)]
+    enum FingerKindSource {
+        Pinky,
+        Ring,
+        Middle,
+        Index,
+        Thumb,
     }
 
-    impl From<EnumFinger> for Finger {
-        fn from(value: EnumFinger) -> Self {
-            match value {
-                EnumFinger::LeftPinky => Finger::new(Hand::Left, FingerKind::Pinky),
-                EnumFinger::LeftRing => Finger::new(Hand::Left, FingerKind::Ring),
-                EnumFinger::LeftMiddle => Finger::new(Hand::Left, FingerKind::Middle),
-                EnumFinger::LeftIndex => Finger::new(Hand::Left, FingerKind::Index),
-                EnumFinger::LeftThumb => Finger::new(Hand::Left, FingerKind::Thumb),
-                EnumFinger::RightThumb => Finger::new(Hand::Right, FingerKind::Thumb),
-                EnumFinger::RightIndex => Finger::new(Hand::Right, FingerKind::Index),
-                EnumFinger::RightMiddle => Finger::new(Hand::Right, FingerKind::Middle),
-                EnumFinger::RightRing => Finger::new(Hand::Right, FingerKind::Ring),
-                EnumFinger::RightPinky => Finger::new(Hand::Right, FingerKind::Pinky),
-            }
-        }
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "snake_case")]
+    #[mapping::map_enum_to(Hand)]
+    enum HandSource {
+        Left,
+        Right,
     }
 
-    impl From<Finger> for EnumFinger {
-        fn from(value: Finger) -> Self {
-            match (value.hand, value.kind) {
-                (Hand::Left, FingerKind::Pinky) => EnumFinger::LeftPinky,
-                (Hand::Left, FingerKind::Ring) => EnumFinger::LeftRing,
-                (Hand::Left, FingerKind::Middle) => EnumFinger::LeftMiddle,
-                (Hand::Left, FingerKind::Index) => EnumFinger::LeftIndex,
-                (Hand::Left, FingerKind::Thumb) => EnumFinger::LeftThumb,
-                (Hand::Right, FingerKind::Thumb) => EnumFinger::RightThumb,
-                (Hand::Right, FingerKind::Index) => EnumFinger::RightIndex,
-                (Hand::Right, FingerKind::Middle) => EnumFinger::RightMiddle,
-                (Hand::Right, FingerKind::Ring) => EnumFinger::RightRing,
-                (Hand::Right, FingerKind::Pinky) => EnumFinger::RightPinky,
+    impl FromStr for Finger {
+        type Err = String;
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            if let Ok(v) = s.trim().parse::<u8>() {
+                return Finger::try_from(v);
             }
-        }
-    }
 
-    impl<'de> Deserialize<'de> for Finger {
-        fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-            let value = FingerSource::deserialize(deserializer)?;
-            match value {
-                FingerSource::Enum(e) => Ok(e.into()),
-                FingerSource::U8(v) => Ok(Finger::try_from(v).map_err(D::Error::custom)?),
-                FingerSource::String(v) => {
-                    Ok(Finger::try_from(v.parse::<u8>().map_err(D::Error::custom)?)
-                        .map_err(D::Error::custom)?)
-                }
-            }
+            let (hand_str, kind_str) = s
+                .split_once('_')
+                .ok_or_else(|| format!("invalid finger format: {}", s))?;
+
+            let hand = HandSource::deserialize(hand_str.trim().into_deserializer())
+                .map_err(|e: de::value::Error| e.to_string())?;
+            let kind = FingerKindSource::deserialize(kind_str.trim().into_deserializer())
+                .map_err(|e: de::value::Error| e.to_string())?;
+
+            Ok(Finger::new(hand.into(), kind.into()))
         }
     }
 
     impl TryFrom<u8> for Finger {
         type Error = String;
-
         fn try_from(value: u8) -> Result<Self, Self::Error> {
             let (hand, kind) = match value {
                 1 => (Hand::Left, FingerKind::Pinky),
@@ -197,8 +185,20 @@ mod layout_finger {
                 10 => (Hand::Right, FingerKind::Pinky),
                 _ => return Err(format!("invalid finger value: {}", value)),
             };
-
             Ok(Finger { hand, kind })
+        }
+    }
+
+    impl<'de> Deserialize<'de> for Finger {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let value = FingerSource::deserialize(deserializer)?;
+            match value {
+                FingerSource::U8(v) => Finger::try_from(v).map_err(de::Error::custom),
+                FingerSource::String(s) => s.parse::<Finger>().map_err(de::Error::custom),
+            }
         }
     }
 }
@@ -246,8 +246,6 @@ mod layout_config {
 
     use super::*;
 
-    impl_deserialize_with_from!(ConfigSource, Config);
-
     #[derive(Debug, Deserialize)]
     #[mapping::map_struct_to(Config)]
     struct ConfigSource {
@@ -280,6 +278,8 @@ mod layout_config {
 
         Matrix::new(raw_data?).map_err(Error::custom)
     }
+
+    impl_deserialize_with_from!(ConfigSource, Config);
 }
 
 mod ngrams_handedness {
