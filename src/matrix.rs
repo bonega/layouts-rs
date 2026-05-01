@@ -1,13 +1,9 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
+use derive_more::Constructor;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash, Constructor)]
 pub struct Pos {
     pub r: usize,
     pub c: usize,
-}
-
-impl Pos {
-    pub fn new(r: usize, c: usize) -> Self {
-        Self { r, c }
-    }
 }
 
 #[derive(Debug, Clone)]

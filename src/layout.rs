@@ -3,20 +3,19 @@ use std::collections::hash_map::DefaultHasher;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
+use derive_more::Constructor;
+
 use crate::matrix::{Matrix, Pos};
 
 const NONE_CHAR: char = '_';
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Constructor)]
 pub struct Coords {
     pub y: f64,
     pub x: f64,
 }
-impl Coords {
-    pub fn new(y: f64, x: f64) -> Self {
-        Self { y, x }
-    }
 
+impl Coords {
     pub fn distance(&self, other: &Coords) -> f64 {
         (self.y - other.y).hypot(self.x - other.x)
     }
@@ -30,16 +29,10 @@ impl Coords {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Constructor)]
 pub struct KeySize {
     pub height: f64,
     pub width: f64,
-}
-
-impl KeySize {
-    pub fn new(height: f64, width: f64) -> Self {
-        Self { height, width }
-    }
 }
 
 impl From<[f64; 2]> for KeySize {
@@ -51,38 +44,18 @@ impl From<[f64; 2]> for KeySize {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Constructor)]
 pub struct Key {
     pub ch: char,
     pub finger: Finger,
     pub position: Pos,
-    pub finger_home: bool,
     pub effort: f64,
+    pub finger_home: bool,
     center: Coords,
     key_size: KeySize,
 }
 
 impl Key {
-    pub fn new(
-        ch: char,
-        finger: Finger,
-        position: Pos,
-        effort: f64,
-        finger_home: bool,
-        center: Coords,
-        key_size: KeySize,
-    ) -> Self {
-        Self {
-            ch,
-            finger,
-            position,
-            effort,
-            finger_home,
-            center,
-            key_size,
-        }
-    }
-
     pub fn same_finger(&self, other: &Key) -> bool {
         self.finger == other.finger
     }
@@ -100,17 +73,13 @@ impl Key {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Constructor)]
 pub struct Finger {
     pub hand: Hand,
     pub kind: FingerKind,
 }
 
 impl Finger {
-    pub fn new(hand: Hand, kind: FingerKind) -> Self {
-        Self { hand, kind }
-    }
-
     pub fn distance(&self, other: &Finger) -> Option<usize> {
         if self.hand != other.hand || self.kind == other.kind {
             return None;

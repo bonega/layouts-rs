@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use derive_more::Constructor;
 use log::{debug, info};
 use rand::{prelude::*, rngs::StdRng};
 
@@ -13,16 +14,13 @@ use crate::{
     targets::Targets,
 };
 
+#[derive(Constructor)]
 pub struct HillClimbOptimizer {
     analyzer: Analyzer,
     targets: Targets,
 }
 
 impl HillClimbOptimizer {
-    pub fn new(analyzer: Analyzer, targets: Targets) -> Self {
-        Self { analyzer, targets }
-    }
-
     fn get_stats(&self, layout: &Layout) -> Stats {
         let mut metrics = Metrics::default();
         self.analyzer.analyze(layout, &mut metrics);

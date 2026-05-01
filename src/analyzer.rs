@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use derive_more::Constructor;
+
 use crate::{
     corpus::Corpus,
     layout::{Key, Layout},
@@ -43,16 +45,12 @@ impl<'a> FromIterator<&'a Key> for KeyLookup<'a> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Constructor)]
 pub struct Analyzer {
     corpus: Corpus,
 }
 
 impl Analyzer {
-    pub fn new(corpus: Corpus) -> Self {
-        Self { corpus }
-    }
-
     pub fn analyze(&self, layout: &Layout, metrics: &mut impl MetricsCollector) {
         let lookup: KeyLookup = layout.keys().collect();
 
