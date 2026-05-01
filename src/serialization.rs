@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::fmt;
 
+use derive_more::Display;
+
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error};
 
 macro_rules! impl_deserialize_with_from {
@@ -141,9 +143,9 @@ mod layout_finger {
         U8(u8),
     }
 
-    #[derive(Debug, Serialize, Deserialize, strum::Display)]
+    #[derive(Debug, Serialize, Deserialize, Display)]
     #[serde(rename_all = "snake_case")]
-    #[strum(serialize_all = "snake_case")]
+    #[display(rename_all = "snake_case")]
     enum EnumFinger {
         LeftPinky,
         LeftRing,
@@ -235,10 +237,10 @@ mod layout_finger_kind {
 
     use super::*;
 
-    #[derive(Debug, Deserialize, Serialize, strum::Display)]
+    #[derive(Debug, Deserialize, Serialize, Display)]
     #[mapping::map_enum(FingerKind)]
     #[serde(rename_all = "snake_case")]
-    #[strum(serialize_all = "snake_case")]
+    #[display(rename_all = "snake_case")]
     pub enum FingerKindRepr {
         Pinky,
         Ring,
@@ -316,10 +318,10 @@ mod ngrams_handedness {
 
     use super::*;
 
-    #[derive(Debug, Serialize, Deserialize, strum::Display)]
+    #[derive(Debug, Serialize, Deserialize, Display)]
     #[mapping::map_enum(Handedness)]
     #[serde(rename_all = "snake_case")]
-    #[strum(serialize_all = "snake_case")]
+    #[display(rename_all = "snake_case")]
     pub enum HandednessRepr {
         Same,
         Alternate,
@@ -334,10 +336,10 @@ mod ngrams_redirect_strength {
 
     use super::*;
 
-    #[derive(Debug, Deserialize, Serialize, strum::Display)]
+    #[derive(Debug, Deserialize, Serialize, Display)]
     #[mapping::map_enum(RedirectStrength)]
     #[serde(rename_all = "snake_case")]
-    #[strum(serialize_all = "snake_case")]
+    #[display(rename_all = "snake_case")]
     pub enum RedirectStrengthRepr {
         Weak,
         Strong,
@@ -352,10 +354,10 @@ mod ngrams_roll_direction {
 
     use super::*;
 
-    #[derive(Debug, Serialize, Deserialize, strum::Display)]
+    #[derive(Debug, Serialize, Deserialize, Display)]
     #[mapping::map_enum(RollDirection)]
     #[serde(rename_all = "snake_case")]
-    #[strum(serialize_all = "snake_case")]
+    #[display(rename_all = "snake_case")]
     pub enum RollDirectionRepr {
         In,
         Out,
