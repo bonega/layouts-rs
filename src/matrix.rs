@@ -1,6 +1,7 @@
-use derive_more::Constructor;
+use derive_more::{Constructor, Display};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash, Constructor)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash, Constructor, Display)]
+#[display("[{r}, {c}]")]
 pub struct Pos {
     pub r: usize,
     pub c: usize,

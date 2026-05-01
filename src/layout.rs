@@ -3,7 +3,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
-use derive_more::Constructor;
+use derive_more::{Constructor, Display};
 
 use crate::matrix::{Matrix, Pos};
 
@@ -73,7 +73,8 @@ impl Key {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Constructor)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Constructor, Display)]
+#[display("{hand}_{kind}")]
 pub struct Finger {
     pub hand: Hand,
     pub kind: FingerKind,
@@ -89,13 +90,15 @@ impl Finger {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
+#[display(rename_all = "snake_case")]
 pub enum Hand {
     Left,
     Right,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
+#[display(rename_all = "snake_case")]
 pub enum FingerKind {
     Pinky,
     Ring,

@@ -1,4 +1,5 @@
 use arrayvec::ArrayVec;
+use derive_more::Display;
 
 use crate::layout::{FingerKind, Key};
 
@@ -21,19 +22,22 @@ pub struct Trigram {
     pub key3: Key,
 }
 
-#[derive(PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd)]
+#[derive(PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Display)]
+#[display(rename_all = "snake_case")]
 pub enum Handedness {
     Same,
     Alternate,
 }
 
-#[derive(PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd)]
+#[derive(PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Display)]
+#[display(rename_all = "snake_case")]
 pub enum RollDirection {
     In,
     Out,
 }
 
-#[derive(PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd)]
+#[derive(PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Display)]
+#[display(rename_all = "snake_case")]
 pub enum RedirectStrength {
     Weak,
     Strong,

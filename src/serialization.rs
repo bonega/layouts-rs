@@ -1,9 +1,6 @@
 use std::collections::HashMap;
-use std::fmt;
 
-use derive_more::Display;
-
-use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error};
+use serde::{Deserialize, Deserializer, de::Error};
 
 macro_rules! impl_deserialize_with_from {
     ($repr:path, $final:path) => {
@@ -11,24 +8,6 @@ macro_rules! impl_deserialize_with_from {
             fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
                 let value = <$repr>::deserialize(deserializer)?;
                 Ok(value.into())
-            }
-        }
-    };
-}
-
-macro_rules! impl_serialize_display {
-    ($repr:path, $typ:path) => {
-        impl Serialize for $typ {
-            fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-                let repr: $repr = (*self).into();
-                repr.serialize(serializer)
-            }
-        }
-
-        impl fmt::Display for $typ {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                let repr: $repr = (*self).into();
-                repr.fmt(f)
             }
         }
     };
@@ -44,20 +23,21 @@ mod config {
 
     #[derive(Deserialize)]
     #[mapping::map_struct_to(Config)]
-    struct ConfigRepr {
+    struct ConfigSource {
         layout: layout::Config,
-        optimization: OptimizationConfigRepr,
+        optimization: OptimizationConfigSource,
     }
+
+    impl_deserialize_with_from!(ConfigSource, Config);
 
     #[derive(Deserialize)]
     #[mapping::map_struct_to(OptimizationConfig)]
-    struct OptimizationConfigRepr {
+    struct OptimizationConfigSource {
         targets: Targets,
         simulated_annealing: SimulatedAnnealingConfig,
     }
 
-    impl_deserialize_with_from!(OptimizationConfigRepr, OptimizationConfig);
-    impl_deserialize_with_from!(ConfigRepr, Config);
+    impl_deserialize_with_from!(OptimizationConfigSource, OptimizationConfig);
 }
 
 mod matrix {
@@ -80,20 +60,20 @@ mod matrix_pos {
 
     #[derive(Debug, Deserialize)]
     #[serde(untagged)]
-    enum PosRepr {
+    enum PosSource {
         Array([usize; 2]),
         String(String),
     }
 
     impl<'de> Deserialize<'de> for Pos {
         fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-            let raw: PosRepr = Deserialize::deserialize(deserializer)?;
+            let raw: PosSource = Deserialize::deserialize(deserializer)?;
             match raw {
-                PosRepr::Array(array) => Ok(Self {
+                PosSource::Array(array) => Ok(Self {
                     r: array[0],
                     c: array[1],
                 }),
-                PosRepr::String(s) => {
+                PosSource::String(s) => {
                     let trimmed = s.trim().trim_start_matches('[').trim_end_matches(']');
                     let parts: Vec<&str> = trimmed.split(',').map(str::trim).collect();
                     if parts.len() != 2 {
@@ -104,12 +84,6 @@ mod matrix_pos {
                     Ok(Self { r, c })
                 }
             }
-        }
-    }
-
-    impl fmt::Display for Pos {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "[{}, {}]", self.r, self.c)
         }
     }
 }
@@ -137,15 +111,14 @@ mod layout_finger {
 
     #[derive(Debug, Deserialize)]
     #[serde(untagged)]
-    enum FingerRepr {
+    enum FingerSource {
         Enum(EnumFinger),
         String(String),
         U8(u8),
     }
 
-    #[derive(Debug, Serialize, Deserialize, Display)]
+    #[derive(Debug, Deserialize)]
     #[serde(rename_all = "snake_case")]
-    #[display(rename_all = "snake_case")]
     enum EnumFinger {
         LeftPinky,
         LeftRing,
@@ -195,19 +168,17 @@ mod layout_finger {
 
     impl<'de> Deserialize<'de> for Finger {
         fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-            let value = FingerRepr::deserialize(deserializer)?;
+            let value = FingerSource::deserialize(deserializer)?;
             match value {
-                FingerRepr::Enum(e) => Ok(e.into()),
-                FingerRepr::U8(v) => Ok(Finger::try_from(v).map_err(D::Error::custom)?),
-                FingerRepr::String(v) => {
+                FingerSource::Enum(e) => Ok(e.into()),
+                FingerSource::U8(v) => Ok(Finger::try_from(v).map_err(D::Error::custom)?),
+                FingerSource::String(v) => {
                     Ok(Finger::try_from(v.parse::<u8>().map_err(D::Error::custom)?)
                         .map_err(D::Error::custom)?)
                 }
             }
         }
     }
-
-    impl_serialize_display!(EnumFinger, Finger);
 
     impl TryFrom<u8> for Finger {
         type Error = String;
@@ -237,11 +208,10 @@ mod layout_finger_kind {
 
     use super::*;
 
-    #[derive(Debug, Deserialize, Serialize, Display)]
+    #[derive(Debug, Deserialize)]
     #[mapping::map_enum(FingerKind)]
     #[serde(rename_all = "snake_case")]
-    #[display(rename_all = "snake_case")]
-    pub enum FingerKindRepr {
+    pub enum FingerKindSource {
         Pinky,
         Ring,
         Middle,
@@ -249,8 +219,7 @@ mod layout_finger_kind {
         Thumb,
     }
 
-    impl_deserialize_with_from!(FingerKindRepr, FingerKind);
-    impl_serialize_display!(FingerKindRepr, FingerKind);
+    impl_deserialize_with_from!(FingerKindSource, FingerKind);
 }
 
 mod layout_key_size {
@@ -277,11 +246,11 @@ mod layout_config {
 
     use super::*;
 
-    impl_deserialize_with_from!(ConfigRepr, Config);
+    impl_deserialize_with_from!(ConfigSource, Config);
 
     #[derive(Debug, Deserialize)]
     #[mapping::map_struct_to(Config)]
-    struct ConfigRepr {
+    struct ConfigSource {
         #[serde(deserialize_with = "deserialize_finger_assignment")]
         pub finger_assignment: Matrix<Option<Finger>>,
         pub finger_effort: Matrix<f64>,
@@ -318,17 +287,15 @@ mod ngrams_handedness {
 
     use super::*;
 
-    #[derive(Debug, Serialize, Deserialize, Display)]
+    #[derive(Debug, Deserialize)]
     #[mapping::map_enum(Handedness)]
     #[serde(rename_all = "snake_case")]
-    #[display(rename_all = "snake_case")]
-    pub enum HandednessRepr {
+    pub enum HandednessSource {
         Same,
         Alternate,
     }
 
-    impl_deserialize_with_from!(HandednessRepr, Handedness);
-    impl_serialize_display!(HandednessRepr, Handedness);
+    impl_deserialize_with_from!(HandednessSource, Handedness);
 }
 
 mod ngrams_redirect_strength {
@@ -336,17 +303,15 @@ mod ngrams_redirect_strength {
 
     use super::*;
 
-    #[derive(Debug, Deserialize, Serialize, Display)]
+    #[derive(Debug, Deserialize)]
     #[mapping::map_enum(RedirectStrength)]
     #[serde(rename_all = "snake_case")]
-    #[display(rename_all = "snake_case")]
-    pub enum RedirectStrengthRepr {
+    pub enum RedirectStrengthSource {
         Weak,
         Strong,
     }
 
-    impl_deserialize_with_from!(RedirectStrengthRepr, RedirectStrength);
-    impl_serialize_display!(RedirectStrengthRepr, RedirectStrength);
+    impl_deserialize_with_from!(RedirectStrengthSource, RedirectStrength);
 }
 
 mod ngrams_roll_direction {
@@ -354,15 +319,13 @@ mod ngrams_roll_direction {
 
     use super::*;
 
-    #[derive(Debug, Serialize, Deserialize, Display)]
+    #[derive(Debug, Deserialize)]
     #[mapping::map_enum(RollDirection)]
     #[serde(rename_all = "snake_case")]
-    #[display(rename_all = "snake_case")]
-    pub enum RollDirectionRepr {
+    pub enum RollDirectionSource {
         In,
         Out,
     }
 
-    impl_deserialize_with_from!(RollDirectionRepr, RollDirection);
-    impl_serialize_display!(RollDirectionRepr, RollDirection);
+    impl_deserialize_with_from!(RollDirectionSource, RollDirection);
 }
